@@ -23,7 +23,7 @@ using StatsBase, CategoricalArrays
                 vor = fit(DeloneHistogram, centers)
                 ypred = predict(vor, dist, X)
                 push!(L, mean(ypred .== y))
-                @test L[end] > 0.6
+                @test L[end] > 0.5
             end
 
             macrorecall = mean(L)
