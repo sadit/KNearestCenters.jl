@@ -12,42 +12,52 @@ export KNC, fit, predict, transform, most_frequent_label, mean_label
 """
 A simple nearest centroid classifier with support for kernel functions
 """
-mutable struct KNC{T}
-    centers::Vector{T}
+struct KNC{DataType<:AbstractVector, KernelType<:AbstractKernel}
+    kernel::KernelType
+    centers::DataType
     dmax::Vector{Float64}
     class_map::Vector{Int}
     nclasses::Int
+    res::KnnResult
 end
 
 """
-    fit(::Type{KNC}, D::DeloneHistogram, class_map::Vector{Int}=Int[]; verbose=true)
-    fit(::Type{KNC}, D::DeloneInvIndex, labels::AbstractVector; verbose=true)
-    fit(::Type{KNC}, dist::Function, input_clusters::NamedTuple, train_X::AbstractVector, train_y::AbstractVector{_Integer}, centroid::Function=mean; split_entropy=0.1, verbose=false) where _Integer<:Integer
+    KNC(kernel::AbstractKernel, D::DeloneHistogram, class_map::Vector{Int})
+    KNC(kernel::AbstractKernel, C::NamedTuple, class_map::Vector{Int}=Int[])
+    KNC(
+        dist::AbstractKernel,
+        input_clusters::NamedTuple,
+        train_X::AbstractVector,
+        train_y::CategoricalArray,
+        centroid::Function=mean;
+        split_entropy=0.3,
+        minimum_elements_per_centroid=1,
+        verbose=false
+    ) 
 
 Creates a KNC classifier using the output of either `kcenters` or `kcenters` as input
-through either a `DeloneHistogram` or `DeloneInvIndex` struct.
+through a `DeloneHistogram` struct.
 If `class_map` is given, then it contains the list of labels to be reported associated to centers; if they are not specified,
 then they are assigned in consecutive order for `DeloneHistogram` and as the most popular label for `DeloneInvIndex`.
 
 The third form is a little bit more complex, the idea is to divide clusters whenever their label-diversity surpasses a given threshold (measured with `split_entropy`).
 This function receives a distance function `dist` and the original dataset `train_X` in addition to other mentioned arguments.
 """
-function fit(::Type{KNC}, D::DeloneHistogram, class_map::Vector{Int}, verbose=true)
+function KNC(kernel::AbstractKernel, D::DeloneHistogram, class_map::Vector{Int})
     if length(class_map) == 0
         class_map = collect(1:length(D.centers.db))
     end
 
-    KNC(D.centers.db, D.dmax, class_map, length(unique(class_map)))
+    KNC(kernel, D.centers.db, D.dmax, class_map, length(unique(class_map)), KnnResult(1))
 end
 
-function fit(::Type{KNC}, C::NamedTuple, class_map::Vector{Int}=Int[]; verbose=true)
-    D = fit(DeloneHistogram, C)
-    fit(KNC, D, class_map)
+function KNC(kernel::AbstractKernel, C::NamedTuple, class_map::Vector{Int}=Int[])
+    D = DeloneHistogram(kernel.dist, C)
+    KNC(kernel, D, class_map)
 end
 
-function fit(
-    ::Type{KNC},
-    dist::Function,
+function KNC(
+    kernel::AbstractKernel,
     input_clusters::NamedTuple,
     train_X::AbstractVector,
     train_y::CategoricalArray,
@@ -98,7 +108,7 @@ function fit(
                 push!(classes, l)
                 d = 0.0
                 for u in XX
-                    d = max(d, convert(Float64, dist(u, c)))
+                    d = max(d, convert(Float64, evaluate(kernel.dist, u, c)))
                 end
 
                 push!(dmax, d)
@@ -109,14 +119,15 @@ function fit(
             push!(classes, pos)
             d = 0.0
             for objID in lst
-                d = max(d, convert(Float64, dist(train_X[objID], centroids[end])))
+                d_ = evaluate(kernel.dist, train_X[objID], centroids[end])
+                d = max(d, convert(Float64, d_))
             end
             push!(dmax, d)
          end
     end
 
     verbose && println(stderr, "finished with $(length(centroids)) centroids; started with $(length(input_clusters.centroids))")
-    KNC(centroids, dmax, classes, nclasses)
+    KNC(kernel, centroids, dmax, classes, nclasses, KnnResult(1))
 end
 
 """
@@ -139,46 +150,24 @@ function mean_label(nc::KNC, res::KnnResult)
 end
 
 """
-    predict(nc::KNC{PointType}, kernel::Function, summary::Function, X::AbstractVector{PointType}) where PointType
-    predict(nc::KNC{PointType}, kernel::Function, summary::Function, x::PointType, k::Integer) where PointType
+    predict(nc::KNC, x; summary=most_frequent_label)
 
-Predicts the class of `x` using the label of the `k` nearest centroid under the `kernel` function.
+Predicts the class of `x` using the label of the `k` nearest centroids under the `kernel` function.
 """
-function predict(nc::KNC{PointType}, kernel::Function, summary::Function, X::AbstractVector{PointType}, k::Integer) where PointType
-    res = KnnResult(k)
-    ypred = Vector{Int}(undef, length(X))
-
-    for j in eachindex(X)
-        empty!(res)
-        ypred[j] = predict(nc, kernel, summary, X[j], k, res)
-    end
-
-    ypred
-end
-
-function predict(nc::KNC{PointType}, kernel::Function, summary::Function, x::PointType, k::Integer, res::KnnResult) where PointType
+function predict(nc::KNC, x, res::KnnResult; summary::Function=most_frequent_label)
     C = nc.centers
     dmax = nc.dmax
-
     for i in eachindex(C)
-        s = eval_kernel(kernel, x, C[i], dmax[i])
-        push!(res, i, -s)
+        s = evaluate(nc.kernel, x, C[i], dmax[i])
+        push!(nc.res, i, -s)
     end
 
-    summary(nc, res)
+    summary(nc, nc.res)
 end
 
-function predict(nc::KNC{PointType}, kernel::Function, summary::Function, x::PointType, k::Integer) where PointType
-    predict(nc, kernel, summary, x, k, KnnResult(k))
-end
-
-"""
-    eval_kernel(kernel::Function, a, b, σ)
-
-Evaluates a kernel function over the giver arguments (isolated to ensure that the function can be compiled)
-"""
-function eval_kernel(kernel::Function, a, b, σ)
-    kernel(a, b, σ)
+function predict(nc::KNC, x; summary=most_frequent_label)
+    empty!(nc.res)
+    predict(nc, x, nc.res; summary=summary)
 end
 
 function broadcastable(nc::KNC)

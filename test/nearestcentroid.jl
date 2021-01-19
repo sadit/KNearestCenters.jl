@@ -10,7 +10,7 @@ using StatsBase, CategoricalArrays
 @testset "One class classifier with DeloneHistogram" begin
 
     X, ylabels = loadiris()
-    dist = l2_distance
+    dist = L2Distance()
 
     for k in [3, 5, 7, 11]
         println("===> k=$k")
@@ -20,8 +20,8 @@ using StatsBase, CategoricalArrays
                 y = ylabels .== label
                 A = X[y]
                 centers = kcenters(dist, A, k, initial=initial, maxiters=maxiters, tol=0.0)
-                vor = fit(DeloneHistogram, centers)
-                ypred = predict(vor, dist, X)
+                vor = DeloneHistogram(dist, centers)
+                ypred = [predict(vor, q) for q in X]
                 push!(L, mean(ypred .== y))
                 @test L[end] > 0.5
             end
@@ -33,28 +33,30 @@ using StatsBase, CategoricalArrays
     end
 end
 
+
 @testset "KNC" begin
     X, ylabels = loadiris()
     M = Dict(label => i for (i, label) in enumerate(unique(ylabels) |> sort!))
     y = categorical([M[y] for y in ylabels])
-    dist = l2_distance
+    dist = L2Distance()
     C = kcenters(dist, X, 12)
     summary = most_frequent_label
-    for kernel in [gaussian_kernel, laplacian_kernel, cauchy_kernel, sigmoid_kernel, tanh_kernel, relu_kernel, direct_kernel]
-        @info "XXXXXX==== split_entropy>", (kernel, dist)
-        nc = fit(KNC, dist, C, X, y, verbose=true, split_entropy=0.5)
+    for kernel in [GaussianKernel(dist), LaplacianKernel(dist), CauchyKernel(dist), SigmoidKernel(dist), TanhKernel(dist), ReluKernel(dist), DirectKernel(dist)]
+        @info "XXXXXX==== split_entropy>", kernel
+        nc = KNC(kernel, C, X, y, verbose=true, split_entropy=0.5)
         @show nc.class_map
-        ypred = predict(nc, kernel(dist), summary, X, 1)
+        ypred = [predict(nc, x) for x in X]
         acc = mean(ypred .== y)
         @show acc
         @test acc > 0.8
         
-        
+        break
     end
 
     C = kcenters(dist, X, 12, maxiters=0, verbose=true)
-    nc = fit(KNC, dist, C, X, y, verbose=true, split_entropy=0.5)
-    ypred = predict(nc, direct_kernel(dist), summary, X, 3) # a direct kernel is required for the iris dataset and knn
+    nc = KNC(DirectKernel(dist), C, X, y, verbose=true, split_entropy=0.5)
+    empty!(nc.res, 3) ## using 3 nearest centers instead of one
+    ypred = [predict(nc, x) for x in X] # a direct kernel is required for the iris dataset and knn
     acc = mean(ypred .== y)
     @show acc
     @test acc > 0.8

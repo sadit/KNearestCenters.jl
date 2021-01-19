@@ -1,92 +1,107 @@
 # This file is a part of KCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export gaussian_kernel, laplacian_kernel, cauchy_kernel, sigmoid_kernel, tanh_kernel, relu_kernel, direct_kernel
+export GaussianKernel, LaplacianKernel, CauchyKernel, SigmoidKernel, ReluKernel, TanhKernel, DirectKernel
+import SimilaritySearch: evaluate, PreMetric
+
+abstract type AbstractKernel end
+
+struct GaussianKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
+struct LaplacianKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
+struct CauchyKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
+struct SigmoidKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
+struct ReluKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
+struct TanhKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
+struct DirectKernel{DistType<:PreMetric} <: AbstractKernel
+    dist::DistType
+end
+
 
 """
-    gaussian_kernel(dist::Function)
+    evaluate(kernel::GaussianKernel, a, b, σ::AbstractFloat)::Float64
 
 Creates a Gaussian kernel with the given distance function
 """
-function gaussian_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        d = dist(a, b)
-        d < 1e-6 && return 1.0
-        exp(- d*d / (2 * σ * σ))
-    end
+function evaluate(kernel::GaussianKernel, a, b, σ::AbstractFloat)::Float64
+    d = evaluate(kernel.dist, a, b)
+    d < 1e-6 ? 1.0 : exp(- d*d / (2 * σ * σ))
 end
 
 """
-    laplacian_kernel(dist::Function)
+    evaluate(kernel::LaplacianKernel, a, b, σ::AbstractFloat)::Float64
 
 Creates a Laplacian kernel with the given distance function
 """
-function laplacian_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        d = dist(a, b)
-        d < 1e-6 && return 1.0
-        exp(- d / σ)
-    end
+function evaluate(kernel::LaplacianKernel, a, b, σ::AbstractFloat)::Float64
+    d = evaluate(kernel.dist, a, b)
+    d < 1e-6 ? 1.0 : exp(- d / σ)
 end
 
 """
-    cauchy_kernel(dist::Function)
+    evaluate(kernel::CauchyKernel, a, b, σ::AbstractFloat)::Float64
 
-Creates a Laplacian kernel with the given distance function
+Creates a Cauchy kernel with the given distance function
 """
-function cauchy_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        d = dist(a, b)
-        d < 1e-6 && return 1.0
-        1 / (1 + d*d / (σ * σ))
-    end
+function evaluate(kernel::CauchyKernel, a, b, σ::AbstractFloat)::Float64
+    d = evaluate(kernel.dist, a, b)
+    d < 1e-6 ? 1.0 : 1 / (1 + d*d / (σ * σ))
 end
 
 """
-     sigmoid_kernel(dist::Function)
+    evaluate(kernel::SigmoidKernel, a, b, σ::AbstractFloat)::Float64
 
-Creates a sigmoid kernel with the given `dist`
+Creates a Sigmoid kernel with the given distance function
 """
-function sigmoid_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        d = dist(a, b)
-        d < 1e-6 && return 1.0
-        1 / (1 + exp(-1.0 + d/σ))
-    end
+function evaluate(kernel::SigmoidKernel, a, b, σ::AbstractFloat)::Float64
+    d = evaluate(kernel.dist, a, b)
+    d < 1e-6 ? 1.0 : 1 / (1 + exp(-1.0 + d/σ))
 end
 
 """
-    tanh_kernel(dist::Function)
+    evaluate(kernel::TanhKernel, a, b, σ::AbstractFloat)::Float64
 
-Creates a tanh kernel with the given distance function
+Creates a Tanh kernel with the given distance function
 """
-function tanh_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        d = dist(a, b)
-        d < 1e-6 && return 1.0
-        x = σ - d
-        (exp(x) - exp(-x)) / (exp(x) + exp(-x))
-    end
+function evaluate(kernel::TanhKernel, a, b, σ::AbstractFloat)::Float64
+    d = evaluate(kernel.dist, a, b)
+    d < 1e-6 && return 1.0
+    x = σ - d
+    (exp(x) - exp(-x)) / (exp(x) + exp(-x))
 end
 
 """
-    relu_kernel(dist::Function)
+    evaluate(kernel::ReluKernel, a, b, σ::AbstractFloat)::Float64
 
-Creates a relu-like kernel with the given distance function 
+Creates a Relu kernel with the given distance function
 """
-function relu_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        max(0.0, 1.0 - dist(a, b) / σ)
-    end
+function evaluate(kernel::ReluKernel, a, b, σ::AbstractFloat)::Float64
+    d = evaluate(kernel.dist, a, b)
+    max(0.0, 1.0 - d / σ)
 end
 
 """
-    direct_kernel(dist::Function)
+    evaluate(kernel::DirectKernel, a, b, σ::AbstractFloat)::Float64
 
-Creates kernel just computing ``1/dist(\\cdot, \\cdot)``
+Creates a Direct kernel with the given distance function
 """
-function direct_kernel(dist::Function)
-    function fun(a, b, σ::AbstractFloat)::Float64
-        1 / dist(a, b)
-    end
+function evaluate(kernel::DirectKernel, a, b, σ::AbstractFloat)::Float64
+    1 / evaluate(kernel.dist, a, b)
 end

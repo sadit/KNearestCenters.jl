@@ -2,9 +2,8 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using Test
-
-using KCenters, SimilaritySearch, CategoricalArrays
-using StatsBase, JSON
+using KCenters, SimilaritySearch, KNearestCenters 
+using CategoricalArrays, StatsBase, JSON
 
 JSON.lower(f::Function) = string(f)
 
@@ -32,8 +31,8 @@ end
         verbose=true,
         ncenters=[0, 3, 7],
         k=[1],
-        dist=[l2_distance, l1_distance],
-        kernel=[direct_kernel],
+        dist=[L2Distance, L1Distance],
+        kernel=[DirectKernel],
         initial_clusters=[:fft, :rand, :dnet],
         minimum_elements_per_centroid=[1, 2]
     )
@@ -42,9 +41,8 @@ end
     @test score > 0.9
 
     # @info get.(models[config], :model, nothing)
-
-    A = fit(config, X, y)
-    sa = scores(y_, predict(A, X_))
+    A = AKNC(config, X, y)
+    sa = classification_scores(y_, predict.(A, X_))
     B = bagging(config, X, y, ratio=0.5, b=30)
     @test sa.accuracy > 0.85
 
@@ -52,15 +50,16 @@ end
     @info "===== scores for single classifier: $(JSON.json(sa))"
 
     for k in [1, 5, 7, 9, 11]
-        sb = scores(y_, predict(B, X_, k))
+        empty!(B.nc.res, k)
+        sb = classification_scores(y_, predict.(B, X_))
         @test sb.accuracy > 0.85
         @info "===== scores for $k: $(JSON.json(sb))"
     end
 
-    config_list = KNearestCenters.optimize!(B, X_, y_, accuracy_score; kernel=[direct_kernel], dist=[l1_distance, l2_distance])
-    sc = scores(y_, predict(B, X_))
-    @test sc.accuracy > 0.85
-    @info "config: $(JSON.json(config_list[1]))"
-    @info "===== scores optimized! B: $(JSON.json(sc))"
+    # config_list = KNearestCenters.optimize!(B, X_, y_, accuracy_score; kernel=[DirectKernel], dist=[L1Distance, L2Distance])
+    # sc = scores(y_, predict.(B, X_))
+    # @test sc.accuracy > 0.85
+    # @info "config: $(JSON.json(config_list[1]))"
+    # @info "===== scores optimized! B: $(JSON.json(sc))"
 end
 

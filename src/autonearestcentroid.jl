@@ -2,15 +2,13 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using KCenters
-using MLDataUtils, Distributed, Random, StatsBase
+using MLDataUtils, Distributed, StatsBase
 import StatsBase: fit, predict
 import Base: hash, isequal
 export search_params, random_configurations, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config
-import Base: hash, isequal
 
-mutable struct AKNC_Config
-    kernel::Function
-    dist::Function
+mutable struct AKNC_Config{KernelType<:AbstractKernel}
+    kernel::KernelType
     centroid::Function
     summary::Function
 
@@ -25,8 +23,7 @@ mutable struct AKNC_Config
 end
 
 function AKNC_Config(;
-        kernel::Function=relu_kernel, # [gaussian_kernel, laplacian_kernel, sigmoid_kernel, relu_kernel]
-        dist::Function=l2_distance,
+        kernel::AbstractKernel=ReluKernel(L2Distance()),
         centroid::Function=mean,
         summary::Function=most_frequent_label,
 
@@ -37,10 +34,11 @@ function AKNC_Config(;
         recall::AbstractFloat=1.0,
         initial_clusters=:rand,
         split_entropy::AbstractFloat=0.6,
-        minimum_elements_per_centroid=3)
+        minimum_elements_per_centroid=3
+    )
     
     AKNC_Config(
-        kernel, dist, centroid, summary,
+        kernel, centroid, summary,
         k, ncenters, maxiters,
         recall, initial_clusters, split_entropy, minimum_elements_per_centroid)
 end
@@ -48,37 +46,40 @@ end
 hash(a::AKNC_Config) = hash(repr(a))
 isequal(a::AKNC_Config, b::AKNC_Config) = isequal(repr(a), repr(b))
 
-mutable struct AKNC{T}
-    nc::KNC{T}
-    kernel::Function
+struct AKNC{KNCType<:KNC, KernelType<:AbstractKernel}
+    nc::KNCType
+    kernel::KernelType
     config::AKNC_Config
 end
 
 """
-    fit(::Type{AKNC}, config::AKNC_Config, X, y; verbose=true)
-    fit(config::AKNC_Config, X, y; verbose=true)
+    struct AKNC{KNCType<:KNC, KernelType<:AbstractKernel}
+        nc::KNCType
+        kernel::KernelType
+        config::AKNC_Config
+    end
+
+    AKNC(config::AKNC_Config, X, y; verbose=true)
 
 Creates a new `AKNC` model using the given configuration and the dataset `X` and `y`
 """
-function fit(::Type{AKNC}, config::AKNC_Config, X, y; verbose=true)    
+function AKNC(config::AKNC_Config, X, y; verbose=true)
+    kernel = config.kernel
     if config.ncenters == 0
-        C = kcenters(config.dist, X, y, config.centroid)
-        cls = fit(KNC, C)
+        C = kcenters(kernel.dist, X, y, config.centroid)
+        knc = KNC(kernel, C)
     else
-        C = kcenters(config.dist, X, config.ncenters, config.centroid,
+        C = kcenters(kernel.dist, X, config.ncenters, config.centroid,
             initial=config.initial_clusters, recall=config.recall, verbose=verbose, maxiters=config.maxiters)
-        cls = fit(
-            KNC, cosine_distance, C, X, y,
+        knc = KNC(kernel, C, X, y,
             config.centroid,
             split_entropy=config.split_entropy,
             minimum_elements_per_centroid=config.minimum_elements_per_centroid,
             verbose=verbose)
     end
 
-    AKNC(cls, config.kernel(config.dist), config)
+    AKNC(knc, kernel, config)
 end
-
-fit(config::AKNC_Config, X, y; verbose=true) = fit(AKNC, config, X, y; verbose=verbose)
 
 """
     predict(model::AKNC, X, k::Integer=0)
@@ -86,18 +87,12 @@ fit(config::AKNC_Config, X, y; verbose=true) = fit(AKNC, config, X, y; verbose=v
 Predicts the label of each item in `X` using `model`; k == 0 means for using the stored `k` in `config`
 """
 
-function predict(model::AKNC, X, k::Integer=0)
-    k = k == 0 ? model.config.k : k
-    ypred = predict(model.nc, model.kernel, model.config.summary, X, k)
+function predict(model::AKNC, x)
+    empty!(model.nc.res, model.config.k)
+    predict(model.nc, x, model.nc.res; summary=model.config.summary)
 end
-"""
-    after_load(model::AKNC)
 
-Fixes the `AKNC` after loading it from an stored image. In particular, it creates a function composition among distance function and a non-linear function with specific properties. 
-"""
-function after_load(model::AKNC)
-    model.kernel = model.config.kernel(config.dist)
-end
+Base.broadcastable(model::AKNC) = (model,)
 
 """
     evaluate_model(config::AKNC_Config, train_X, train_y, test_X, test_y; verbose=true)
@@ -106,9 +101,9 @@ Creates a model for `train_X` and `train_y`, defined with `config`, evaluates th
 Returns a named tuple containing the evalution scores and the computed model.
 """
 function evaluate_model(config::AKNC_Config, train_X, train_y, test_X, test_y; verbose=true)
-    knc = fit(AKNC, config, train_X, train_y, verbose=verbose)
-    ypred = predict(knc, test_X)
-    (scores=scores(test_y, ypred), model=knc)
+    knc = AKNC(config, train_X, train_y, verbose=verbose)
+    ypred = [predict(knc, x) for x in test_X]
+    (scores=classification_scores(test_y, ypred), model=knc)
 end
 
 """
@@ -141,8 +136,8 @@ the search space definition of the given parameters (the following parameters mu
 
 """
 function random_configurations(::Type{AKNC}, H, ssize;
-        kernel::AbstractVector=[relu_kernel, direct_kernel], # [gaussian_kernel, laplacian_kernel, sigmoid_kernel, relu_kernel]
-        dist::AbstractVector=[l2_distance],
+        kernel::AbstractVector=[ReluKernel, DirectKernel], # [gaussian_kernel, laplacian_kernel, sigmoid_kernel, relu_kernel]
+        dist::AbstractVector=[L2Distance, CosineDistance],
         centroid::AbstractVector=[mean],
         summary::AbstractVector=[most_frequent_label, mean_label],
         k::AbstractVector=[1],
@@ -155,13 +150,13 @@ function random_configurations(::Type{AKNC}, H, ssize;
         verbose=true
     )
 
-    _rand_list(lst) = length(lst) == 0 ? [] : rand(lst)
 
     H = H === nothing ? Dict{AKNC_Config,Float64}() : H
     iter = 0
     for i in 1:ssize
         iter += 1
         ncenters_ = rand(ncenters)
+
         if ncenters_ == 0
             maxiters_ = 0
             split_entropy_ = 0.0
@@ -176,9 +171,11 @@ function random_configurations(::Type{AKNC}, H, ssize;
             k_ = rand(k)
         end
 
+        kernel_type = rand(kernel)
+        dist_type = rand(dist)
+
         config = AKNC_Config(
-            kernel = rand(kernel),
-            dist = rand(dist),
+            kernel=kernel_type(dist_type()),
             centroid = rand(centroid),
             summary = rand(summary),
             k = k_,
@@ -210,7 +207,6 @@ function combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize,
     for i in 1:ssize
         config = AKNC_Config(
             kernel = _sel().kernel,
-            dist = _sel().dist,
             centroid = _sel().centroid,
             summary = _sel().summary,
             k = a.k,
@@ -290,11 +286,11 @@ function search_params(::Type{AKNC}, X, y, configurations;
 
     n = length(y)
     if folds isa Integer
-        indexes = shuffle!(collect(1:n))
+        indexes = Random.shuffle!(collect(1:n))
         folds = kfolds(indexes, folds)
     elseif folds isa AbstractFloat
         !(0.0 < folds < 1.0) && error("the folds parameter should follow 0.0 < folds < 1.0")
-        indexes = shuffle!(collect(1:n))
+        indexes = Random.shuffle!(collect(1:n))
         m = ceil(Int, folds * n)
         folds = [(indexes[1:m], indexes[m+1:end])]
     end
