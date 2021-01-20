@@ -1,7 +1,7 @@
 name = "KNearestCenters"
 uuid = "4dca28ae-43b8-11eb-1f5e-d55054101997"
 authors = ["Eric S. Tellez"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
