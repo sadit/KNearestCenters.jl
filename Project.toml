@@ -15,12 +15,12 @@ SimilaritySearch = "053f045d-5466-53fd-b400-a066f88fe02a"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-CategoricalArrays = "0.8"
+CategoricalArrays = "0.8, 0.9"
 JSON = "0.21"
 KCenters = "0.3"
 MLDataUtils = "0.5"
-SimilaritySearch = "0.4.1"
-StatsBase = "0.32"
+SimilaritySearch = "0.4.2"
+StatsBase = "0.32, 0.33"
 julia = "1.1"
 
 [extras]

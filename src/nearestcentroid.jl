@@ -150,6 +150,7 @@ function mean_label(nc::KNC, res::KnnResult)
 end
 
 """
+    predict(nc::KNC, x, res::KnnResult; summary::Function=most_frequent_label)
     predict(nc::KNC, x; summary=most_frequent_label)
 
 Predicts the class of `x` using the label of the `k` nearest centroids under the `kernel` function.
@@ -159,10 +160,10 @@ function predict(nc::KNC, x, res::KnnResult; summary::Function=most_frequent_lab
     dmax = nc.dmax
     for i in eachindex(C)
         s = evaluate(nc.kernel, x, C[i], dmax[i])
-        push!(nc.res, i, -s)
+        push!(res, i, -s)
     end
 
-    summary(nc, nc.res)
+    summary(nc, res)
 end
 
 function predict(nc::KNC, x; summary=most_frequent_label)
