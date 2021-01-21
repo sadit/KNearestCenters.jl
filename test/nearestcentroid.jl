@@ -28,7 +28,7 @@ using StatsBase, CategoricalArrays
 
             macrorecall = mean(L)
             println(stderr, "===> (k=$k, initial=$initial, maxiters=$maxiters); macro-recall: $macrorecall")
-            @test macrorecall > 0.8
+            @test macrorecall > 0.7
         end
     end
 end
