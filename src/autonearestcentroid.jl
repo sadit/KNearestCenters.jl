@@ -195,7 +195,7 @@ function combine_configurations(config_list::AbstractVector{AKNC_Config})
     _sel() = rand(config_list)
 
     a = _sel()  # select a basis element
-    config = AKNC_Config(
+    AKNC_Config(
         kernel = _sel().kernel,
         dist = _sel().dist,
         centroid = _sel().centroid,
