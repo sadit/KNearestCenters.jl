@@ -44,7 +44,7 @@ end
     A = AKNC(config, X, y)
     sa = classification_scores(y_, predict.(A, X_))
     B = bagging(config, X, y, ratio=0.5, b=30)
-    @test sa.accuracy > 0.85
+    @test sa.accuracy > 0.80
 
     @info "class distribution: ", countmap(y), countmap(y_)
     @info "===== scores for single classifier: $(JSON.json(sa))"
