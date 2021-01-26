@@ -5,7 +5,7 @@ using KCenters
 using MLDataUtils, Distributed, StatsBase
 import StatsBase: fit, predict
 import Base: hash, isequal
-export search_params, random_configurations, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config, AKNC_ConfigSpace
+export search_params, random_configuration, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config, AKNC_ConfigSpace
 
 struct AKNC_Config{K_<:AbstractKernel, M_<:PreMetric}
     kernel::Type{K_}
@@ -150,83 +150,64 @@ AKNC_ConfigSpace(;
 ) = AKNC_ConfigSpace(kernel, dist, centroid, summary, k, maxiters, recall, ncenters, initial_clusters, split_entropy, minimum_elements_per_centroid)
 
 """
-    random_configurations(space::AKNC_ConfigSpace, ssize::Integer; H=Dict{AKNC_Config,Float64}(), verbose=true)
+    random_configuration(space::AKNC_ConfigSpace)
 
-Creates `ssize` random configurations for AKNC (they will be stored in the `H` dictionary) using
-the search space definition of the given parameters (the following parameters must be given as vectors of possible choices)
-
-- `verbose` controls the verbosity of the output
-
+Creates a random `AKNC_Config` instance based on the `space` definition.
 """
-function random_configurations(space::AKNC_ConfigSpace, ssize::Integer; configurations=Dict{AKNC_Config,Float64}(), verbose=true)
-    iter = 0
-    for i in 1:ssize
-        iter += 1
-        ncenters = rand(space.ncenters)
+function random_configuration(space::AKNC_ConfigSpace)
+    ncenters = rand(space.ncenters)
 
-        if ncenters == 0
-            maxiters = 0
-            split_entropy = 0.0
-            minimum_elements_per_centroid = 1
-            initial_clusters = :rand  # nothing in fact
-            k = 1
-        else
-            maxiters = rand(space.maxiters)
-            split_entropy = rand(space.split_entropy)
-            minimum_elements_per_centroid = rand(space.minimum_elements_per_centroid)
-            initial_clusters = rand(space.initial_clusters)
-            k = rand(space.k)
-        end
-
-        config = AKNC_Config(
-            kernel = rand(space.kernel),
-            dist = rand(space.dist),
-            centroid = rand(space.centroid),
-            summary = rand(space.summary),
-            k = k,
-            ncenters = ncenters,
-            maxiters = maxiters,
-            recall = rand(space.recall),
-            initial_clusters = initial_clusters,
-            split_entropy = split_entropy,
-            minimum_elements_per_centroid = minimum_elements_per_centroid
-        )
-
-        haskey(configurations, config) && continue
-        configurations[config] = -1
+    if ncenters == 0
+        maxiters = 0
+        split_entropy = 0.0
+        minimum_elements_per_centroid = 1
+        initial_clusters = :rand  # nothing in fact
+        k = 1
+    else
+        maxiters = rand(space.maxiters)
+        split_entropy = rand(space.split_entropy)
+        minimum_elements_per_centroid = rand(space.minimum_elements_per_centroid)
+        initial_clusters = rand(space.initial_clusters)
+        k = rand(space.k)
     end
 
-    configurations
+    config = AKNC_Config(
+        kernel = rand(space.kernel),
+        dist = rand(space.dist),
+        centroid = rand(space.centroid),
+        summary = rand(space.summary),
+        k = k,
+        ncenters = ncenters,
+        maxiters = maxiters,
+        recall = rand(space.recall),
+        initial_clusters = initial_clusters,
+        split_entropy = split_entropy,
+        minimum_elements_per_centroid = minimum_elements_per_centroid
+    )
 end
 
 """
-    combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize, configurations::Dict)
+    combine_configurations(config_list::AbstractVector{AKNC_Config})
 
-Creates `ssize` individuals using a combination of the given `config_list` (they will be stored in the `configurations` dictionary)
+Creates a new configuration combining the given configurations
 """
-function combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize, configurations::Dict)
+function combine_configurations(config_list::AbstractVector{AKNC_Config})
     _sel() = rand(config_list)
 
     a = _sel()  # select a basis element
-    for i in 1:ssize
-        config = AKNC_Config(
-            kernel = _sel().kernel,
-            dist = _sel().dist,
-            centroid = _sel().centroid,
-            summary = _sel().summary,
-            k = a.k,
-            ncenters = a.ncenters,
-            maxiters = a.maxiters,
-            recall = _sel().recall,
-            initial_clusters = a.initial_clusters,
-            split_entropy = a.split_entropy,
-            minimum_elements_per_centroid = a.minimum_elements_per_centroid,
-        )
-        haskey(configurations, config) && continue
-        configurations[config] = -1
-    end
-
-    configurations
+    config = AKNC_Config(
+        kernel = _sel().kernel,
+        dist = _sel().dist,
+        centroid = _sel().centroid,
+        summary = _sel().summary,
+        k = a.k,
+        ncenters = a.ncenters,
+        maxiters = a.maxiters,
+        recall = _sel().recall,
+        initial_clusters = a.initial_clusters,
+        split_entropy = a.split_entropy,
+        minimum_elements_per_centroid = a.minimum_elements_per_centroid,
+    )
 end
 
 """
@@ -285,7 +266,11 @@ function search_params(config_space::AKNC_ConfigSpace, X, y, m=8;
     )
     
     save_models = modelstorage !== nothing
-    random_configurations(config_space, m; configurations=configurations)
+
+    # initializing population
+    for conf in 1:m
+        configurations[random_configuration(config_space)] = -1.0
+    end
 
     n = length(y)
     if folds isa Integer
@@ -358,13 +343,16 @@ function search_params(config_space::AKNC_ConfigSpace, X, y, m=8;
 
             # preparing for crossover best items and some random configurations
             L =  AKNC_Config[L[i][1] for i in 1:min(bsize, length(L))] # select best
-            if mutation_bsize > 0
-                for p in keys(random_configurations(config_space, mutation_bsize; verbose=verbose))
-                    push!(L, p)
+            for i in 1:mutation_bsize
+                push!(L, random_configuration(config_space))
+            end
+        
+            for i in 1:ssize
+                conf = combine_configurations(L)
+                if !haskey(configurations, conf)
+                    configurations[conf] = -1.0
                 end
             end
-
-            combine_configurations(L, ssize, configurations)
             verbose && println(stderr, "finished with $(length(configurations))")
         end
     end
