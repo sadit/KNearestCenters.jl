@@ -7,8 +7,9 @@ import StatsBase: fit, predict
 import Base: hash, isequal
 export search_params, random_configurations, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config
 
-mutable struct AKNC_Config{KernelType<:AbstractKernel}
-    kernel::KernelType
+struct AKNC_Config{K_<:AbstractKernel, M_<:PreMetric}
+    kernel::Type{K_}
+    dist::Type{M_}
     centroid::Function
     summary::Function
 
@@ -23,7 +24,8 @@ mutable struct AKNC_Config{KernelType<:AbstractKernel}
 end
 
 function AKNC_Config(;
-        kernel::AbstractKernel=ReluKernel(L2Distance()),
+        kernel::Type=ReluKernel,
+        dist::Type=CosineDistance,
         centroid::Function=mean,
         summary::Function=most_frequent_label,
 
@@ -38,7 +40,7 @@ function AKNC_Config(;
     )
     
     AKNC_Config(
-        kernel, centroid, summary,
+        kernel, dist, centroid, summary,
         k, ncenters, maxiters,
         recall, initial_clusters, split_entropy, minimum_elements_per_centroid)
 end
@@ -64,7 +66,7 @@ end
 Creates a new `AKNC` model using the given configuration and the dataset `X` and `y`
 """
 function AKNC(config::AKNC_Config, X, y; verbose=true)
-    kernel = config.kernel
+    kernel = config.kernel(config.dist())
     if config.ncenters == 0
         C = kcenters(kernel.dist, X, y, config.centroid)
         knc = KNC(kernel, C)
@@ -108,8 +110,10 @@ end
 
 """
     random_configurations(::Type{AKNC}, H, ssize;
-        kernel::AbstractVector=[relu_kernel], 
-        dist::AbstractVector=[l2_distance],
+        kernel::AbstractVector=[RelyKernel, DirectKernel], 
+        dist::AbstractVector=[L2Distance, CosineDistance],
+        centroid::AbstractVector=[mean],
+        summary::AbstractVector=[most_frequent_label, mean_label],
         k::AbstractVector=[1],
         maxiters::AbstractVector=[1, 3, 10],
         recall::AbstractVector=[1.0],
@@ -150,7 +154,6 @@ function random_configurations(::Type{AKNC}, H, ssize;
         verbose=true
     )
 
-
     H = H === nothing ? Dict{AKNC_Config,Float64}() : H
     iter = 0
     for i in 1:ssize
@@ -161,7 +164,7 @@ function random_configurations(::Type{AKNC}, H, ssize;
             maxiters_ = 0
             split_entropy_ = 0.0
             minimum_elements_per_centroid_ = 1
-            initial_clusters_ = :rand # nothing in fact
+            initial_clusters_ = :rand  # nothing in fact
             k_ = 1
         else
             maxiters_ = rand(maxiters)
@@ -175,7 +178,8 @@ function random_configurations(::Type{AKNC}, H, ssize;
         dist_type = rand(dist)
 
         config = AKNC_Config(
-            kernel=kernel_type(dist_type()),
+            kernel = kernel_type,
+            dist = dist_type,
             centroid = rand(centroid),
             summary = rand(summary),
             k = k_,
@@ -207,6 +211,7 @@ function combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize,
     for i in 1:ssize
         config = AKNC_Config(
             kernel = _sel().kernel,
+            dist = _sel().dist,
             centroid = _sel().centroid,
             summary = _sel().summary,
             k = a.k,
