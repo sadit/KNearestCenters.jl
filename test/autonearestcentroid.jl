@@ -19,7 +19,15 @@ end
 
     #models = Dict()
 
-    best_list = search_params(AKNC, X, y, 16;
+    space = AKNC_ConfigSpace(
+        ncenters=[0, 3, 7],
+        k=[1],
+        dist=[L2Distance, L1Distance],
+        kernel=[DirectKernel],
+        initial_clusters=[:fft, :rand, :dnet],
+        minimum_elements_per_centroid=[1, 2]
+    )
+    best_list = search_params(space, X, y, 16;
         bsize=12,
         mutation_bsize=4,
         ssize=4,
@@ -28,13 +36,7 @@ end
         search_maxiters=8,
         score=:accuracy,
         #models=models,
-        verbose=true,
-        ncenters=[0, 3, 7],
-        k=[1],
-        dist=[L2Distance, L1Distance],
-        kernel=[DirectKernel],
-        initial_clusters=[:fft, :rand, :dnet],
-        minimum_elements_per_centroid=[1, 2]
+        verbose=true
     )
     @info "========== BEST MODEL =========="
     config, score = best_list[1]

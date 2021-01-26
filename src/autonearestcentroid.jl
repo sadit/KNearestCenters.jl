@@ -5,7 +5,7 @@ using KCenters
 using MLDataUtils, Distributed, StatsBase
 import StatsBase: fit, predict
 import Base: hash, isequal
-export search_params, random_configurations, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config
+export search_params, random_configurations, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config, AKNC_ConfigSpace
 
 struct AKNC_Config{K_<:AbstractKernel, M_<:PreMetric}
     kernel::Type{K_}
@@ -16,34 +16,30 @@ struct AKNC_Config{K_<:AbstractKernel, M_<:PreMetric}
     k::Int
     ncenters::Int
     maxiters::Int
-    
+
     recall::Float64
     initial_clusters
     split_entropy::Float64
     minimum_elements_per_centroid::Int
 end
 
-function AKNC_Config(;
-        kernel::Type=ReluKernel,
-        dist::Type=CosineDistance,
-        centroid::Function=mean,
-        summary::Function=most_frequent_label,
+AKNC_Config(;
+    kernel::Type=ReluKernel,
+    dist::Type=CosineDistance,
+    centroid::Function=mean,
+    summary::Function=most_frequent_label,
 
-        k::Int=1,
-        ncenters::Integer=0,
-        maxiters::Integer=1,
-        
-        recall::AbstractFloat=1.0,
-        initial_clusters=:rand,
-        split_entropy::AbstractFloat=0.6,
-        minimum_elements_per_centroid=3
-    )
+    k::Int=1,
+    ncenters::Integer=0,
+    maxiters::Integer=1,
     
-    AKNC_Config(
-        kernel, dist, centroid, summary,
-        k, ncenters, maxiters,
+    recall::AbstractFloat=1.0,
+    initial_clusters=:rand,
+    split_entropy::AbstractFloat=0.6,
+    minimum_elements_per_centroid=3
+) = AKNC_Config(
+        kernel, dist, centroid, summary, k, ncenters, maxiters,
         recall, initial_clusters, split_entropy, minimum_elements_per_centroid)
-end
 
 hash(a::AKNC_Config) = hash(repr(a))
 isequal(a::AKNC_Config, b::AKNC_Config) = isequal(repr(a), repr(b))
@@ -108,8 +104,22 @@ function evaluate_model(config::AKNC_Config, train_X, train_y, test_X, test_y; v
     (scores=classification_scores(test_y, ypred), model=knc)
 end
 
+struct AKNC_ConfigSpace
+    kernel::Vector{Type}
+    dist::Vector{Type}
+    centroid::Vector{Function}
+    summary::Vector{Function}
+    k::Vector{Integer}
+    maxiters::Vector{Integer}
+    recall::Vector{Real}
+    ncenters::Vector{Integer}
+    initial_clusters::Vector{Any}
+    split_entropy::Vector{Real}
+    minimum_elements_per_centroid::Vector{Integer}
+end
+
 """
-    random_configurations(::Type{AKNC}, H, ssize;
+    AKNC_ConfigSpace(;
         kernel::AbstractVector=[RelyKernel, DirectKernel], 
         dist::AbstractVector=[L2Distance, CosineDistance],
         centroid::AbstractVector=[mean],
@@ -120,94 +130,84 @@ end
         ncenters::AbstractVector=[0, 10],
         initial_clusters::AbstractVector=[:fft, :dnet, :rand],
         split_entropy::AbstractVector=[0.3, 0.6, 0.9],
-        minimum_elements_per_centroid::AbstractVector=[1, 3, 5],
-        verbose=true
+        minimum_elements_per_centroid::AbstractVector=[1, 3, 5]
     )
+
+Creates a configuration space for AKNC_Config
+"""
+AKNC_ConfigSpace(;
+    kernel::Vector=[ReluKernel, DirectKernel, GaussianKernel],
+    dist::Vector=[L2Distance, CosineDistance],
+    centroid::Vector=[mean],
+    summary::Vector=[most_frequent_label, mean_label],
+    k::Vector=[1],
+    maxiters::Vector=[1, 3, 10],
+    recall::Vector=[1.0],
+    ncenters::Vector=[0, 10],
+    initial_clusters::Vector=[:fft, :dnet, :rand],
+    split_entropy::Vector=[0.3, 0.6, 0.9],
+    minimum_elements_per_centroid::Vector=[1, 3, 5]
+) = AKNC_ConfigSpace(kernel, dist, centroid, summary, k, maxiters, recall, ncenters, initial_clusters, split_entropy, minimum_elements_per_centroid)
+
+"""
+    random_configurations(space::AKNC_ConfigSpace, ssize::Integer; H=Dict{AKNC_Config,Float64}(), verbose=true)
 
 Creates `ssize` random configurations for AKNC (they will be stored in the `H` dictionary) using
 the search space definition of the given parameters (the following parameters must be given as vectors of possible choices)
 
-- `kernel` a kernel function [gaussian_kernel, laplacian_kernel, sigmoid_kernel, relu_kernel, direct_kernel], see `src/kernels.jl`
-- `dist` function to measure the distance between any two valid objects
-- `k` is number of nearest centroids to determine labels,
-- `maxiters` is number of iterations of the Lloyd's algorithm for computing clusters
-- `recall` determines if an approximate metric index should be used for computing cluster, `0 < recall \\leq 1`, it trades quality by speed.
-- `ncenters` number of centers to compute (0 means to use the labeled data to compute clusters)
-- `initial_clusters` specifies how to compute initial clusters [:fft, :dnet, :rand]; also, an actual array of clusters can be given.
-- `split_entropy` determines when a cluster can be splitted; i.e., when the entropy of the cluster surpasses this threshold, only for ``ncenters> 0``.
-- `minimum_elements_per_centroid`, the algorithm will refuse to create clusters with less than this number of elements, only for ``ncenters> 0``.
 - `verbose` controls the verbosity of the output
 
 """
-function random_configurations(::Type{AKNC}, H, ssize;
-        kernel::AbstractVector=[ReluKernel, DirectKernel], # [gaussian_kernel, laplacian_kernel, sigmoid_kernel, relu_kernel]
-        dist::AbstractVector=[L2Distance, CosineDistance],
-        centroid::AbstractVector=[mean],
-        summary::AbstractVector=[most_frequent_label, mean_label],
-        k::AbstractVector=[1],
-        maxiters::AbstractVector=[1, 3, 10],
-        recall::AbstractVector=[1.0],
-        ncenters::AbstractVector=[0, 10],
-        initial_clusters::AbstractVector=[:fft, :dnet, :rand],
-        split_entropy::AbstractVector=[0.3, 0.6, 0.9],
-        minimum_elements_per_centroid::AbstractVector=[1, 3, 5],
-        verbose=true
-    )
-
-    H = H === nothing ? Dict{AKNC_Config,Float64}() : H
+function random_configurations(space::AKNC_ConfigSpace, ssize::Integer; configurations=Dict{AKNC_Config,Float64}(), verbose=true)
     iter = 0
     for i in 1:ssize
         iter += 1
-        ncenters_ = rand(ncenters)
+        ncenters = rand(space.ncenters)
 
-        if ncenters_ == 0
-            maxiters_ = 0
-            split_entropy_ = 0.0
-            minimum_elements_per_centroid_ = 1
-            initial_clusters_ = :rand  # nothing in fact
-            k_ = 1
+        if ncenters == 0
+            maxiters = 0
+            split_entropy = 0.0
+            minimum_elements_per_centroid = 1
+            initial_clusters = :rand  # nothing in fact
+            k = 1
         else
-            maxiters_ = rand(maxiters)
-            split_entropy_ = rand(split_entropy)
-            minimum_elements_per_centroid_ = rand(minimum_elements_per_centroid)
-            initial_clusters_ = rand(initial_clusters)
-            k_ = rand(k)
+            maxiters = rand(space.maxiters)
+            split_entropy = rand(space.split_entropy)
+            minimum_elements_per_centroid = rand(space.minimum_elements_per_centroid)
+            initial_clusters = rand(space.initial_clusters)
+            k = rand(space.k)
         end
 
-        kernel_type = rand(kernel)
-        dist_type = rand(dist)
-
         config = AKNC_Config(
-            kernel = kernel_type,
-            dist = dist_type,
-            centroid = rand(centroid),
-            summary = rand(summary),
-            k = k_,
-            ncenters = ncenters_,
-            maxiters = maxiters_,
-            recall = rand(recall),
-            initial_clusters = initial_clusters_,
-            split_entropy = split_entropy_,
-            minimum_elements_per_centroid = minimum_elements_per_centroid_
+            kernel = rand(space.kernel),
+            dist = rand(space.dist),
+            centroid = rand(space.centroid),
+            summary = rand(space.summary),
+            k = k,
+            ncenters = ncenters,
+            maxiters = maxiters,
+            recall = rand(space.recall),
+            initial_clusters = initial_clusters,
+            split_entropy = split_entropy,
+            minimum_elements_per_centroid = minimum_elements_per_centroid
         )
-        haskey(H, config) && continue
-        H[config] = -1
+
+        haskey(configurations, config) && continue
+        configurations[config] = -1
     end
 
-    H
+    configurations
 end
 
 """
-    combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize, H)
+    combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize, configurations::Dict)
 
-Creates `ssize` individuals using a combination of the given `config_list` (they will be stored in the `H` dictionary)
+Creates `ssize` individuals using a combination of the given `config_list` (they will be stored in the `configurations` dictionary)
 """
-function combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize, H)
-    function _sel()
-        rand(config_list)
-    end
+function combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize, configurations::Dict)
+    _sel() = rand(config_list)
 
-    a = _sel()
+    a = _sel()  # select a basis element
     for i in 1:ssize
         config = AKNC_Config(
             kernel = _sel().kernel,
@@ -222,15 +222,16 @@ function combine_configurations(config_list::AbstractVector{AKNC_Config}, ssize,
             split_entropy = a.split_entropy,
             minimum_elements_per_centroid = a.minimum_elements_per_centroid,
         )
-        haskey(H, config) && continue
-        H[config] = -1
+        haskey(configurations, config) && continue
+        configurations[config] = -1
     end
 
-    H
+    configurations
 end
 
 """
-    search_params(::Type{AKNC}, X, y, configurations;
+    function search_params(config_space::AKNC_ConfigSpace, X, y, m=8;
+        configurations=Dict{AKNC_Config,Float64}(),
         bsize::Integer=4,
         mutation_bsize::Integer=1,
         ssize::Integer=8,
@@ -239,19 +240,18 @@ end
         score=:macro_recall,
         tol::AbstractFloat=0.01,
         verbose=true,
-        models::Union{Nothing,Dict}=nothing,
-        distributed=true,
-        config_kwargs...
+        modelstorage::Union{Nothing,Dict}=nothing,
+        distributed=false
+    ) config_kwargs...
     )
 
 Performs a model selection of AKNC for the given examples ``(X, y)`` using an evolutive algorithm
 (a variant of a genetic algorithm). Note that this function use Distributed's `@spawn` to evaluate each configuration,
 and therefore, this function can run on a distributed system transparently.
 
-The `configurations` parameter can be an integer or a list of initial configurations (initial population); an integer
-indicates the number of random individuales to be sampled from the search space.
+The `m` integer indicates the number of random individuales to be sampled from the search space.
+The `configurations` may be given as an initial set of configurations.
 
-The search space is defined with `config_kwargs` which correspond to those arguments of the `random_configurations` function.
 
 The hyper-parameters found in this function are have the following meanings:
 - `bsize`: the number of best items selected after each iteration to perform crossover (selection)
@@ -267,10 +267,11 @@ The hyper-parameters found in this function are have the following meanings:
   regarding `score`, then the model selection procedure will be stopped. Set `tol` to a negative number to ignore this
   early stopping mode in favor of `search_maxiters`.
 - `verbose`: indicates that you are willing to have a verbose output of several internal steps.
-- `models`: if a dictionary is given, then all models and scores are captured into `models`.
+- `modelstorage`: if a dictionary is given, then all models and scores are captured into.
 - `distributed`: if it is true then the model evaluation is made with Distributed.@spawn (useful for debugging)
 """
-function search_params(::Type{AKNC}, X, y, configurations;
+function search_params(config_space::AKNC_ConfigSpace, X, y, m=8;
+        configurations=Dict{AKNC_Config,Float64}(),
         bsize::Integer=4,
         mutation_bsize::Integer=1,
         ssize::Integer=8,
@@ -279,15 +280,12 @@ function search_params(::Type{AKNC}, X, y, configurations;
         score=:macro_recall,
         tol::AbstractFloat=0.01,
         verbose=true,
-        models::Union{Nothing,Dict}=nothing,
-        distributed=false,
-        config_kwargs...
+        modelstorage::Union{Nothing,Dict}=nothing,
+        distributed=false
     )
     
-    save_models = models isa Dict
-    if configurations isa Integer
-       configurations = random_configurations(AKNC, nothing, configurations; config_kwargs...)
-    end
+    save_models = modelstorage !== nothing
+    random_configurations(config_space, m; configurations=configurations)
 
     n = length(y)
     if folds isa Integer
@@ -338,7 +336,7 @@ function search_params(::Type{AKNC}, X, y, configurations;
         for (c, perf_list) in zip(C, S)
             perf_list = fetch.(perf_list)
             if save_models
-                models[c] = perf_list
+                modelstorage[c] = perf_list
             end
             configurations[c] = mean([scorefun(p) for p in perf_list])
         end
@@ -346,7 +344,7 @@ function search_params(::Type{AKNC}, X, y, configurations;
         if iter <= search_maxiters
             L = sort!(collect(configurations), by=x->x[2], rev=true)
             curr = L[1][2]
-            if abs(curr - prev) <= tol                
+            if abs(curr - prev) <= tol      
                 verbose && println(stderr, "stopping on iteration $iter due to a possible convergence ($curr ≃ $prev, tol: $tol)")
                 break
             end
@@ -358,9 +356,10 @@ function search_params(::Type{AKNC}, X, y, configurations;
                 println(stderr, L[1])
             end
 
-            L =  AKNC_Config[L[i][1] for i in 1:min(bsize, length(L))]
+            # preparing for crossover best items and some random configurations
+            L =  AKNC_Config[L[i][1] for i in 1:min(bsize, length(L))] # select best
             if mutation_bsize > 0
-                for p in keys(random_configurations(AKNC, nothing, mutation_bsize; config_kwargs...))
+                for p in keys(random_configurations(config_space, mutation_bsize; verbose=verbose))
                     push!(L, p)
                 end
             end
