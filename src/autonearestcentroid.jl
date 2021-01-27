@@ -64,9 +64,11 @@ Creates a new `AKNC` model using the given configuration and the dataset `X` and
 function AKNC(config::AKNC_Config, X, y; verbose=true)
     kernel = config.kernel(config.dist())
     if config.ncenters == 0
+        verbose && println("AKNC> clustering data with labels")
         C = kcenters(kernel.dist, X, y, config.centroid)
         knc = KNC(kernel, C)
     else
+        verbose && println("AKNC> clustering data")
         C = kcenters(kernel.dist, X, config.ncenters, config.centroid,
             initial=config.initial_clusters, recall=config.recall, verbose=verbose, maxiters=config.maxiters)
         knc = KNC(kernel, C, X, y,
@@ -80,28 +82,33 @@ function AKNC(config::AKNC_Config, X, y; verbose=true)
 end
 
 """
-    predict(model::AKNC, X, k::Integer=0)
+    predict(model::AKNC, x, res::KnnResult=model.nc.res)
 
 Predicts the label of each item in `X` using `model`; k == 0 means for using the stored `k` in `config`
 """
 
-function predict(model::AKNC, x)
-    empty!(model.nc.res, model.config.k)
-    predict(model.nc, x, model.nc.res; summary=model.config.summary)
+function predict(model::AKNC, x, res::KnnResult=model.nc.res)
+    empty!(res, model.config.k)
+    predict(model.nc, x, res; summary=model.config.summary)
 end
 
 Base.broadcastable(model::AKNC) = (model,)
 
 """
-    evaluate_model(config::AKNC_Config, train_X, train_y, test_X, test_y; verbose=true)
+    evaluate_model(config::AKNC_Config, train_X, train_y::CategoricalArray, test_X, test_y::CategoricalArray; verbose=true)
 
 Creates a model for `train_X` and `train_y`, defined with `config`, evaluates them with `test_X` and `test_y`.
 Returns a named tuple containing the evalution scores and the computed model.
 """
-function evaluate_model(config::AKNC_Config, train_X, train_y, test_X, test_y; verbose=true)
+function evaluate_model(config::AKNC_Config, train_X, train_y::CategoricalArray, test_X, test_y::CategoricalArray; verbose=true)
     knc = AKNC(config, train_X, train_y, verbose=verbose)
     ypred = [predict(knc, x) for x in test_X]
-    (scores=classification_scores(test_y, ypred), model=knc)
+    s = classification_scores(test_y.refs, ypred)
+    if verbose
+        println(stderr, typeof(test_y), typeof(ypred))
+        println(stderr, s)
+    end
+    (scores=s, model=knc)
 end
 
 struct AKNC_ConfigSpace
@@ -268,7 +275,7 @@ function search_params(config_space::AKNC_ConfigSpace, X, y, m=8;
     save_models = modelstorage !== nothing
 
     # initializing population
-    for conf in 1:m
+    for i in 1:m
         configurations[random_configuration(config_space)] = -1.0
     end
 

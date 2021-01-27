@@ -4,7 +4,7 @@
 module KNearestCenters
 
 using KCenters
-# include("scores.jl")  # TODO change supervised learning scores to this package
+include("scores.jl")  # TODO change supervised learning scores to this package
 include("criterions.jl")
 include("vorhist.jl")
 include("kernels.jl")

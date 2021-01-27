@@ -44,7 +44,7 @@ end
 
     # @info get.(models[config], :model, nothing)
     A = AKNC(config, X, y)
-    sa = classification_scores(y_, predict.(A, X_))
+    sa = classification_scores(y_.refs, predict.(A, X_))
     B = bagging(config, X, y, ratio=0.5, b=30)
     @test sa.accuracy > 0.80
 
@@ -53,7 +53,7 @@ end
 
     for k in [1, 5, 7, 9, 11]
         empty!(B.nc.res, k)
-        sb = classification_scores(y_, predict.(B, X_))
+        sb = classification_scores(y_.refs, predict.(B, X_))
         @test sb.accuracy > 0.85
         @info "===== scores for $k: $(JSON.json(sb))"
     end

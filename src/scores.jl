@@ -1,7 +1,7 @@
 # This file is a part of KCenters.jl, based on a previous implementation of KernelMethods.jl (with the same license and author)
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 using StatsBase
-export accuracy_score, precision_recall, precision_score, recall_score, f1_score, scores
+export accuracy_score, precision_recall, precision_score, recall_score, f1_score, classification_scores
 
 ## classification scores
 """
@@ -80,14 +80,13 @@ function f1_score(gold, predict; weight=:macro)::Float64
 end
 
 """
-    scores(gold, predicted,  le=nothing)
+    classification_scores(gold, predicted)
 
 Computes several scores for the given gold-standard and predictions, namely: 
-precision, recall, and f1 scores, for global and per-class granularity. If le is given,
-the internal numeric labels are translated using the MLLabelUtils interface.
+precision, recall, and f1 scores, for global and per-class granularity
 
 """
-function scores(gold, predicted, le=nothing)
+function classification_scores(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
     class_f1 = Dict()
 	class_precision = Dict()
 	class_recall = Dict()
@@ -95,32 +94,31 @@ function scores(gold, predicted, le=nothing)
     P = precision_recall(gold, predicted)
 	
     for (k, v) in P.per_class
-		if le !== nothing
-			k = ind2label(k, le)
-		end
         class_f1[k] = f1_(v.precision, v.recall)
 		class_precision[k] = v.precision
 		class_recall[k] = v.recall
     end
 
     (
-        micro_f1 = f1_(P.precision, P.recall),
+        microf1 = f1_(P.precision, P.recall),
 		precision = P.precision,
         recall = P.recall,
-        macro_recall = mean(values(class_recall)),
-        macro_f1 = mean(values(class_f1)),
+        macrorecall = mean(values(class_recall)),
+        macrof1 = mean(values(class_f1)),
         accuracy = accuracy_score(gold, predicted),
-        class_f1 = class_f1,
-        class_precision = class_precision,
-        class_recall = class_recall
+        classf1 = class_f1,
+        classprecision = class_precision,
+        classrecall = class_recall
     )
 end
 
 """
-It computes the global and per-class precision and recall values between the gold standard
+    precision_recall(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer
+
+Computes the global and per-class precision and recall values between the gold standard
 and the predicted set
 """
-function precision_recall(gold, predicted)
+function precision_recall(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
     labels = unique(gold)
     M = Dict{typeof(labels[1]), NamedTuple}()
     tp_ = 0
@@ -169,11 +167,11 @@ function precision_recall(gold, predicted)
 end
 
 """
-    accuracy_score(gold, predicted)
+    accuracy_score(gold::T, predicted::T) where T
 
-It computes the accuracy score between the gold and the predicted sets
+Computes the accuracy score between the gold and the predicted sets
 """
-function accuracy_score(gold, predicted)
+function accuracy_score(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
     #  mean(gold .== predicted)
     c = 0
     for i in 1:length(gold)
