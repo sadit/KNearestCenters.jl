@@ -1,4 +1,4 @@
-# This file is a part of KCenters.jl
+# This file is a part of KNearestCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 export AbstractKernel, GaussianKernel, LaplacianKernel, CauchyKernel, SigmoidKernel, ReluKernel, TanhKernel, DirectKernel
@@ -33,6 +33,15 @@ end
 struct DirectKernel{DistType<:PreMetric} <: AbstractKernel
     dist::DistType
 end
+
+StructTypes.StructType(::Type{<:GaussianKernel}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:LaplacianKernel}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:CauchyKernel}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:SigmoidKernel}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:ReluKernel}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:TanhKernel}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:DirectKernel}) = StructTypes.Struct()
+
 
 
 """

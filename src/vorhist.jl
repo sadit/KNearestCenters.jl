@@ -1,4 +1,4 @@
-# This file is a part of KCenters.jl
+# This file is a part of KNearestCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 import StatsBase: fit, predict
@@ -13,8 +13,10 @@ mutable struct DeloneHistogram{CentersSearchType<:AbstractSearchContext}
     n::Int
 end
 
-function DeloneHistogram(dist::PreMetric, kcenters_::NamedTuple)
-    k = length(kcenters_.centroids)
+StructTypes.StructType(::Type{<:DeloneHistogram}) = StructTypes.Struct()
+
+function DeloneHistogram(dist::PreMetric, kcenters_::ClusteringData)
+    k = length(kcenters_.centers)
     freqs = zeros(Int, k)
     dmax = zeros(Float64, k)
     
@@ -25,8 +27,7 @@ function DeloneHistogram(dist::PreMetric, kcenters_::NamedTuple)
         dmax[code] = max(dmax[code], d)
     end
 
-    C = ExhaustiveSearch(dist, kcenters_.centroids)
-    T = eltype(kcenters_.centroids)
+    C = ExhaustiveSearch(dist, kcenters_.centers)
     DeloneHistogram(C, freqs, dmax, length(kcenters_.codes))
 end
 

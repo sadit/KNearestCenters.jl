@@ -1,17 +1,15 @@
-# This file is a part of KCenters.jl
+# This file is a part of KNearestCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using KCenters
 using MLDataUtils, Distributed, StatsBase
 import StatsBase: fit, predict
 import Base: hash, isequal
-export search_params, random_configuration, combine_configurations, fit, after_load, predict, AKNC, AKNC_Config, AKNC_ConfigSpace
+export search_params, random_configuration, combine_configurations, predict, AKNC, AKNC_Config, AKNC_ConfigSpace
 
-struct AKNC_Config{K_<:AbstractKernel, M_<:PreMetric}
-    kernel::Type{K_}
-    dist::Type{M_}
-    centroid::Function
-    summary::Function
+struct AKNC_Config{K_<:AbstractKernel, S_<:AbstractCenterSelection}
+    kernel::K_
+    centerselection::S_
 
     k::Int
     ncenters::Int
@@ -20,14 +18,12 @@ struct AKNC_Config{K_<:AbstractKernel, M_<:PreMetric}
     recall::Float64
     initial_clusters
     split_entropy::Float64
-    minimum_elements_per_centroid::Int
+    minimum_elements_per_region::Int
 end
 
 AKNC_Config(;
-    kernel::Type=ReluKernel,
-    dist::Type=CosineDistance,
-    centroid::Function=mean,
-    summary::Function=most_frequent_label,
+    kernel=ReluKernel(CosineDistance()),
+    centerselection::AbstractCenterSelection=CentroidSelection(),
 
     k::Int=1,
     ncenters::Integer=0,
@@ -36,19 +32,21 @@ AKNC_Config(;
     recall::AbstractFloat=1.0,
     initial_clusters=:rand,
     split_entropy::AbstractFloat=0.6,
-    minimum_elements_per_centroid=3
+    minimum_elements_per_region=3
 ) = AKNC_Config(
-        kernel, dist, centroid, summary, k, ncenters, maxiters,
-        recall, initial_clusters, split_entropy, minimum_elements_per_centroid)
+        kernel, centerselection, k, ncenters, maxiters,
+        recall, initial_clusters, split_entropy, minimum_elements_per_region)
 
 hash(a::AKNC_Config) = hash(repr(a))
 isequal(a::AKNC_Config, b::AKNC_Config) = isequal(repr(a), repr(b))
 
-struct AKNC{KNCType<:KNC, KernelType<:AbstractKernel}
+struct AKNC{KNCType<:KNC, C_<:AKNC_Config}
     nc::KNCType
-    kernel::KernelType
-    config::AKNC_Config
+    config::C_
 end
+
+StructTypes.StructType(::Type{<:AKNC_Config}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:AKNC}) = StructTypes.Struct()
 
 """
     struct AKNC{KNCType<:KNC, KernelType<:AbstractKernel}
@@ -62,23 +60,27 @@ end
 Creates a new `AKNC` model using the given configuration and the dataset `X` and `y`
 """
 function AKNC(config::AKNC_Config, X, y; verbose=true)
-    kernel = config.kernel(config.dist())
-    if config.ncenters == 0
+    kernel = config.kernel
+    knc = if config.ncenters == 0
         verbose && println("AKNC> clustering data with labels")
-        C = kcenters(kernel.dist, X, y, config.centroid)
-        knc = KNC(kernel, C)
+        C = kcenters(kernel.dist, X, y, config.centerselection)
+        KNC(kernel, C)
     else
         verbose && println("AKNC> clustering data")
-        C = kcenters(kernel.dist, X, config.ncenters, config.centroid,
-            initial=config.initial_clusters, recall=config.recall, verbose=verbose, maxiters=config.maxiters)
-        knc = KNC(kernel, C, X, y,
-            config.centroid,
+        C = kcenters(kernel.dist, X, config.ncenters;
+            sel=config.centerselection,
+            initial=config.initial_clusters,
+            recall=config.recall,
+            verbose=verbose,
+            maxiters=config.maxiters)
+        KNC(kernel, C, X, y;
+            centerselection=config.centerselection,
             split_entropy=config.split_entropy,
-            minimum_elements_per_centroid=config.minimum_elements_per_centroid,
+            minimum_elements_per_region=config.minimum_elements_per_region,
             verbose=verbose)
     end
 
-    AKNC(knc, kernel, config)
+    AKNC(knc, config)
 end
 
 """
@@ -89,7 +91,7 @@ Predicts the label of each item in `X` using `model`; k == 0 means for using the
 
 function predict(model::AKNC, x, res::KnnResult=model.nc.res)
     empty!(res, model.config.k)
-    predict(model.nc, x, res; summary=model.config.summary)
+    predict(model.nc, x, res)
 end
 
 Base.broadcastable(model::AKNC) = (model,)
@@ -112,49 +114,45 @@ function evaluate_model(config::AKNC_Config, train_X, train_y::CategoricalArray,
 end
 
 struct AKNC_ConfigSpace
-    kernel::Vector{Type}
-    dist::Vector{Type}
-    centroid::Vector{Function}
-    summary::Vector{Function}
+    kernel::Array{AbstractKernel}
+    centerselection::Vector{AbstractCenterSelection}
     k::Vector{Integer}
     maxiters::Vector{Integer}
     recall::Vector{Real}
     ncenters::Vector{Integer}
     initial_clusters::Vector{Any}
     split_entropy::Vector{Real}
-    minimum_elements_per_centroid::Vector{Integer}
+    minimum_elements_per_region::Vector{Integer}
 end
 
 """
     AKNC_ConfigSpace(;
-        kernel::AbstractVector=[RelyKernel, DirectKernel], 
-        dist::AbstractVector=[L2Distance, CosineDistance],
-        centroid::AbstractVector=[mean],
-        summary::AbstractVector=[most_frequent_label, mean_label],
+        kernel::Array=[k_(d_()) for k_ in [DirectKernel, ReluKernel],
+                                    d_ in [L2Distance, CosineDistance]],                         
+        centerselection::AbstractVector=[CentroidSelection(), RandomCenterSelection(), MedoidSelection(), KnnCentroidSelection()],
         k::AbstractVector=[1],
         maxiters::AbstractVector=[1, 3, 10],
         recall::AbstractVector=[1.0],
         ncenters::AbstractVector=[0, 10],
         initial_clusters::AbstractVector=[:fft, :dnet, :rand],
         split_entropy::AbstractVector=[0.3, 0.6, 0.9],
-        minimum_elements_per_centroid::AbstractVector=[1, 3, 5]
+        minimum_elements_per_region::AbstractVector=[1, 3, 5]
     )
 
 Creates a configuration space for AKNC_Config
 """
 AKNC_ConfigSpace(;
-    kernel::Vector=[ReluKernel, DirectKernel, GaussianKernel],
-    dist::Vector=[L2Distance, CosineDistance],
-    centroid::Vector=[mean],
-    summary::Vector=[most_frequent_label, mean_label],
+    kernel::Array{AbstractKernel}=[k_(d_()) for k_ in [DirectKernel, ReluKernel],
+                                                d_ in [L2Distance, CosineDistance]],
+    centerselection::AbstractVector=[CentroidSelection(), RandomCenterSelection(), MedoidSelection(), KnnCentroidSelection()],
     k::Vector=[1],
     maxiters::Vector=[1, 3, 10],
     recall::Vector=[1.0],
     ncenters::Vector=[0, 10],
     initial_clusters::Vector=[:fft, :dnet, :rand],
     split_entropy::Vector=[0.3, 0.6, 0.9],
-    minimum_elements_per_centroid::Vector=[1, 3, 5]
-) = AKNC_ConfigSpace(kernel, dist, centroid, summary, k, maxiters, recall, ncenters, initial_clusters, split_entropy, minimum_elements_per_centroid)
+    minimum_elements_per_region::Vector=[1, 3, 5]
+) = AKNC_ConfigSpace(kernel, centerselection, k, maxiters, recall, ncenters, initial_clusters, split_entropy, minimum_elements_per_region)
 
 """
     random_configuration(space::AKNC_ConfigSpace)
@@ -167,29 +165,27 @@ function random_configuration(space::AKNC_ConfigSpace)
     if ncenters == 0
         maxiters = 0
         split_entropy = 0.0
-        minimum_elements_per_centroid = 1
+        minimum_elements_per_region = 1
         initial_clusters = :rand  # nothing in fact
         k = 1
     else
         maxiters = rand(space.maxiters)
         split_entropy = rand(space.split_entropy)
-        minimum_elements_per_centroid = rand(space.minimum_elements_per_centroid)
+        minimum_elements_per_region = rand(space.minimum_elements_per_region)
         initial_clusters = rand(space.initial_clusters)
         k = rand(space.k)
     end
 
     config = AKNC_Config(
         kernel = rand(space.kernel),
-        dist = rand(space.dist),
-        centroid = rand(space.centroid),
-        summary = rand(space.summary),
+        centerselection = rand(space.centerselection),
         k = k,
         ncenters = ncenters,
         maxiters = maxiters,
         recall = rand(space.recall),
         initial_clusters = initial_clusters,
         split_entropy = split_entropy,
-        minimum_elements_per_centroid = minimum_elements_per_centroid
+        minimum_elements_per_region = minimum_elements_per_region
     )
 end
 
@@ -204,16 +200,14 @@ function combine_configurations(config_list::AbstractVector{AKNC_Config})
     a = _sel()  # select a basis element
     AKNC_Config(
         kernel = _sel().kernel,
-        dist = _sel().dist,
-        centroid = _sel().centroid,
-        summary = _sel().summary,
+        centerselection = _sel().centerselection,
         k = a.k,
         ncenters = a.ncenters,
         maxiters = a.maxiters,
         recall = _sel().recall,
         initial_clusters = a.initial_clusters,
         split_entropy = a.split_entropy,
-        minimum_elements_per_centroid = a.minimum_elements_per_centroid,
+        minimum_elements_per_region = a.minimum_elements_per_region,
     )
 end
 

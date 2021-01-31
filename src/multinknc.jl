@@ -1,4 +1,4 @@
-# This file is a part of KCenters.jl
+# This file is a part of KNearestCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using Random
@@ -23,7 +23,7 @@ end
 function glue(arr::AbstractVector{K}) where {K<:AKNC}
     a = first(arr)
     nc = glue([s.nc for s in arr])
-    AKNC(nc, a.kernel, a.config)
+    AKNC(nc, a.config)
 end
 
 """
@@ -47,11 +47,11 @@ function bagging(config::AKNC_Config, X::AbstractVector, y::CategoricalArray; b=
 end
 ## 
 ## """
-##     optimize!(model::AKNC, X, y, score::Function=recall_score; k=[1, 3, 5, 7], kernel=[DirectKernel, ReluKernel, LaplacianKernel, GaussianKernel], dist=[L1Distance, L2Distance, CosineDistance], summary=[most_frequent_label, mean_label], verbose=true)
+##     optimize!(model::AKNC, X, y, score::Function=recall_score; k=[1, 3, 5, 7], kernel=[DirectKernel, ReluKernel, LaplacianKernel, GaussianKernel], dist=[L1Distance, L2Distance, CosineDistance], verbose=true)
 ## 
 ## Selects `k` and `kernel` to AKNC to adjust better to the given score and the dataset ``(X, y)``.
 ## """
-## function optimize!(model::AKNC, X, y, score::Function=recall_score; k=[1, 3, 5, 7], kernel=[DirectKernel, ReluKernel, LaplacianKernel, GaussianKernel], dist=[L1Distance, L2Distance, CosineDistance], summary=[most_frequent_label, mean_label], verbose=true)
+## function optimize!(model::AKNC, X, y, score::Function=recall_score; k=[1, 3, 5, 7], kernel=[DirectKernel, ReluKernel, LaplacianKernel, GaussianKernel], dist=[L1Distance, L2Distance, CosineDistance], verbose=true)
 ##     L = []
 ##     for k_ in k, kernel_ in kernel, dist_ in dist, summary_ in summary
 ##         kernel_fun = kernel_(dist_())

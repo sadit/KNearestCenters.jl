@@ -1,4 +1,4 @@
-# This file is a part of KCenters.jl
+# This file is a part of KNearestCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 # based on Rocchio implementation (rocchio.jl) of https://github.com/sadit/TextSearch.jl
 
@@ -7,7 +7,7 @@ using LinearAlgebra
 using StatsBase
 import StatsBase: fit, predict
 using CategoricalArrays
-export KNC, fit, predict, transform, most_frequent_label, mean_label
+export KNC, fit, predict, transform
 
 """
 A simple nearest centroid classifier with support for kernel functions
@@ -21,17 +21,19 @@ struct KNC{DataType<:AbstractVector, KernelType<:AbstractKernel}
     res::KnnResult
 end
 
+StructTypes.StructType(::Type{<:KNC}) = StructTypes.Struct()
+
 """
     KNC(kernel::AbstractKernel, D::DeloneHistogram, class_map::Vector{Int})
-    KNC(kernel::AbstractKernel, C::NamedTuple, class_map::Vector{Int}=Int[])
+    KNC(kernel::AbstractKernel, C::ClusteringData, class_map::Vector{Int}=Int[])
     KNC(
         dist::AbstractKernel,
-        input_clusters::NamedTuple,
+        input_clusters::ClusteringData,
         train_X::AbstractVector,
-        train_y::CategoricalArray,
-        centroid::Function=mean;
+        train_y::CategoricalArray;
+        centerselection::AbstractCenterSelection=CentroidSelection(),
         split_entropy=0.3,
-        minimum_elements_per_centroid=1,
+        minimum_elements_per_region=1,
         verbose=false
     ) 
 
@@ -51,25 +53,25 @@ function KNC(kernel::AbstractKernel, D::DeloneHistogram, class_map::Vector{Int})
     KNC(kernel, D.centers.db, D.dmax, class_map, length(unique(class_map)), KnnResult(1))
 end
 
-function KNC(kernel::AbstractKernel, C::NamedTuple, class_map::Vector{Int}=Int[])
+function KNC(kernel::AbstractKernel, C::ClusteringData, class_map::Vector{Int}=Int[])
     D = DeloneHistogram(kernel.dist, C)
     KNC(kernel, D, class_map)
 end
 
 function KNC(
     kernel::AbstractKernel,
-    input_clusters::NamedTuple,
+    input_clusters::ClusteringData,
     train_X::AbstractVector,
-    train_y::CategoricalArray,
-    centroid::Function=mean;
+    train_y::CategoricalArray;
+    centerselection::AbstractCenterSelection=CentroidSelection(),
     split_entropy=0.3,
-    minimum_elements_per_centroid=1,
+    minimum_elements_per_region=1,
     verbose=false
 )    
-    centroids = eltype(train_X)[] # clusters
+    centers = eltype(train_X)[] # clusters
     classes = Int[] # class mapping between clusters and classes
     dmax = Float64[]
-    ncenters = length(input_clusters.centroids)
+    ncenters = length(input_clusters.centers)
     nclasses = length(levels(train_y))
     _ent(f, n) = (f == 0) ? 0.0 : (f / n * log(n / f))
     
@@ -78,16 +80,16 @@ function KNC(
         ylst = @view train_y.refs[lst] # real labels related to this centerID
         freqs = counts(ylst, 1:nclasses) # histogram of labels in this centerID
         @info freqs
-        labels = findall(f -> f >= minimum_elements_per_centroid, freqs)
+        labels = findall(f -> f >= minimum_elements_per_region, freqs)
 
         # compute entropy of the set of labels
         # skip if the minimum number of elements is not reached
         if length(labels) == 0
-            verbose && println(stderr, "*** center $centerID: ignoring all elements because minimum-frequency restrictions were not met, freq >= $minimum_elements_per_centroid, freqs: $freqs")
+            verbose && println(stderr, "*** center $centerID: ignoring all elements because minimum-frequency restrictions were not met, freq >= $minimum_elements_per_region, freqs: $freqs")
             continue
         end
 
-        verbose && println(stderr, "*** center $centerID: selecting labels $labels (freq >= $minimum_elements_per_centroid) [from $freqs]")
+        verbose && println(stderr, "*** center $centerID: selecting labels $labels (freq >= $minimum_elements_per_region) [from $freqs]")
 
         if length(labels) == 1
             # a unique label, skip computation
@@ -96,15 +98,15 @@ function KNC(
             freqs_ = freqs[labels]
             n = sum(freqs_)
             e = sum(_ent(f, n) for f in freqs_) / log(length(labels))
-            verbose && println(stderr, "** centroid: $centerID, normalized-entropy: $e, ", 
+            verbose && println(stderr, "** center: $centerID, normalized-entropy: $e, ", 
                 collect(zip(labels, freqs_)))
         end
 
         if e > split_entropy            
             for l in labels
                 XX = [train_X[lst[pos]] for (pos, c) in enumerate(ylst) if c == l]
-                c = centroid(XX)
-                push!(centroids, c)
+                c = center(centerselection, XX)
+                push!(centers, c)
                 push!(classes, l)
                 d = 0.0
                 for u in XX
@@ -114,20 +116,20 @@ function KNC(
                 push!(dmax, d)
             end
         else
-            push!(centroids, input_clusters.centroids[centerID])
+            push!(centers, input_clusters.centers[centerID])
             freq, pos = findmax(freqs)
             push!(classes, pos)
             d = 0.0
             for objID in lst
-                d_ = evaluate(kernel.dist, train_X[objID], centroids[end])
+                d_ = evaluate(kernel.dist, train_X[objID], centers[end])
                 d = max(d, convert(Float64, d_))
             end
             push!(dmax, d)
          end
     end
 
-    verbose && println(stderr, "finished with $(length(centroids)) centroids; started with $(length(input_clusters.centroids))")
-    KNC(kernel, centroids, dmax, classes, nclasses, KnnResult(1))
+    verbose && println(stderr, "finished with $(length(centers)) centers; started with $(length(input_clusters.centers))")
+    KNC(kernel, centers, dmax, classes, nclasses, KnnResult(1))
 end
 
 """
@@ -150,12 +152,12 @@ function mean_label(nc::KNC, res::KnnResult)
 end
 
 """
-    predict(nc::KNC, x, res::KnnResult; summary::Function=most_frequent_label)
-    predict(nc::KNC, x; summary=most_frequent_label)
+    predict(nc::KNC, x, res::KnnResult)
+    predict(nc::KNC, x)
 
-Predicts the class of `x` using the label of the `k` nearest centroids under the `kernel` function.
+Predicts the class of `x` using the label of the `k` nearest centers under the `kernel` function.
 """
-function predict(nc::KNC, x, res::KnnResult; summary::Function=most_frequent_label)
+function predict(nc::KNC, x, res::KnnResult)
     C = nc.centers
     dmax = nc.dmax
     for i in eachindex(C)
@@ -163,12 +165,12 @@ function predict(nc::KNC, x, res::KnnResult; summary::Function=most_frequent_lab
         push!(res, i, -s)
     end
 
-    summary(nc, res)
+    most_frequent_label(nc, res)
 end
 
-function predict(nc::KNC, x; summary=most_frequent_label)
+function predict(nc::KNC, x)
     empty!(nc.res)
-    predict(nc, x, nc.res; summary=summary)
+    predict(nc, x, nc.res)
 end
 
 function broadcastable(nc::KNC)

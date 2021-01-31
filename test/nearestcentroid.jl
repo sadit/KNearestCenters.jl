@@ -1,4 +1,4 @@
-# This file is a part of KCenters.jl
+# This file is a part of KNearestCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using Test
@@ -40,7 +40,6 @@ end
     y = categorical([M[y] for y in ylabels])
     dist = L2Distance()
     C = kcenters(dist, X, 12)
-    summary = most_frequent_label
     for kernel in [GaussianKernel(dist), LaplacianKernel(dist), CauchyKernel(dist), SigmoidKernel(dist), TanhKernel(dist), ReluKernel(dist), DirectKernel(dist)]
         @info "XXXXXX==== split_entropy>", kernel
         nc = KNC(kernel, C, X, y, verbose=true, split_entropy=0.5)
@@ -49,8 +48,6 @@ end
         acc = mean(ypred .== y)
         @show acc
         @test acc > 0.8
-        
-        break
     end
 
     C = kcenters(dist, X, 12, maxiters=0, verbose=true)

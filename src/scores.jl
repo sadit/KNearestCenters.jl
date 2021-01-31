@@ -1,4 +1,4 @@
-# This file is a part of KCenters.jl, based on a previous implementation of KernelMethods.jl (with the same license and author)
+# This file is a part of KNearestCenters.jl, based on a previous implementation of KernelMethods.jl (with the same license and author)
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 using StatsBase
 export accuracy_score, precision_recall, precision_score, recall_score, f1_score, classification_scores
