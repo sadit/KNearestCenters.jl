@@ -5,10 +5,10 @@ using Test
 
 include("loaddata.jl")
 using KCenters, SimilaritySearch
-using StatsBase, CategoricalArrays
+using Random, StatsBase, CategoricalArrays, MLDataUtils
+
 
 @testset "One class classifier with DeloneHistogram" begin
-
     X, ylabels = loadiris()
     dist = L2Distance()
 
@@ -34,29 +34,58 @@ using StatsBase, CategoricalArrays
 end
 
 
-@testset "KNC" begin
+@testset "Knc" begin
     X, ylabels = loadiris()
     M = Dict(label => i for (i, label) in enumerate(unique(ylabels) |> sort!))
     y = categorical([M[y] for y in ylabels])
     dist = L2Distance()
     C = kcenters(dist, X, 12)
     for kernel in [GaussianKernel(dist), LaplacianKernel(dist), CauchyKernel(dist), SigmoidKernel(dist), TanhKernel(dist), ReluKernel(dist), DirectKernel(dist)]
-        @info "XXXXXX==== split_entropy>", kernel
-        nc = KNC(kernel, C, X, y, verbose=true, split_entropy=0.5)
-        @show nc.class_map
-        ypred = [predict(nc, x) for x in X]
+        nc = Knc(KncConfig(kernel=kernel, ncenters=0), X, y, verbose=true)
+        ypred = predict.(nc, X)
+        acc = mean(ypred .== y)
+        @show acc
+        @test acc > 0.8
+
+        nc = Knc(KncConfig(kernel=kernel, ncenters=21, initial_clusters=:fft, minimum_elements_per_region=1), X, y, verbose=true)
+        ypred = predict.(nc, X)
         acc = mean(ypred .== y)
         @show acc
         @test acc > 0.8
     end
-
-    C = kcenters(dist, X, 12, maxiters=0, verbose=true)
-    nc = KNC(DirectKernel(dist), C, X, y, verbose=true, split_entropy=0.5)
-    empty!(nc.res, 3) ## using 3 nearest centers instead of one
-    ypred = [predict(nc, x) for x in X] # a direct kernel is required for the iris dataset and knn
-    acc = mean(ypred .== y)
-    @show acc
-    @test acc > 0.8
-
 end
 
+@testset "Knc search_models" begin
+    X, ylabels = loadiris()
+    ylabels = categorical(ylabels)
+    space = KncConfigSpace(
+        ncenters=[0, 3, 7],
+        k=[1],
+        initial_clusters=[:fft, :rand, :dnet],
+        minimum_elements_per_region=[1, 2]
+    )
+
+    
+    ifolds = kfolds(shuffle!(collect(1:length(X))), 3)
+    function evalmodel(config::KncConfig)
+        score = 0.0
+        for (itrain, itest) in ifolds
+            model = Knc(config, X[itrain], ylabels[itrain])
+            score += mean(predict.(model, X[itest]) .== ylabels[itest].refs)
+        end
+    
+        score / length(ifolds)
+    end
+
+    best_list = search_models(space, evalmodel, 16;
+        bsize=12,
+        mutbsize=4,
+        crossbsize=4,
+        tol=-1.0,
+        maxiters=4,
+        verbose=true
+    )
+    config, score = best_list[1]
+    @info "========== BEST MODEL ==========", config => score
+    @test score > 0.9
+end

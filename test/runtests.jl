@@ -1,7 +1,7 @@
 # This file is a part of KCenters.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 using Test
-using KNearestCenters, KCenters
+using KNearestCenters
 
 @testset "Scores" begin
     @test accuracy_score([1,1,1,1,1], [1,1,1,1,1]) == 1.0
@@ -16,5 +16,4 @@ using KNearestCenters, KCenters
     @test f1_score([0,1,1,1,0,1], [0,1,1,1,1,1], weight=:macro) ≈ (2 * 0.5 / 1.5 + 2 * 0.8 / 1.8) / 2
 end
 
-include("nearestcentroid.jl")
-include("autonearestcentroid.jl")
+include("knc.jl")

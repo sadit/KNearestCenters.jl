@@ -2,7 +2,6 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using Test
-using DelimitedFiles
 
 function loadiris()
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
@@ -11,10 +10,16 @@ function loadiris()
         download(url, filename)
     end
 
-    data = readdlm(filename, ',')
-    X = data[:, 1:4]
-    X = [Float64.(X[i, :]) for i in 1:size(X, 1)]
-    y = String.(data[:, 5])
+    y = String[]
+    X = Vector{Float32}[]
+    for line in eachline(filename)
+        arr = split(line, ',')
+        length(arr) < 5 && continue
+        vec = map(s->parse(Float32, s), arr[1:end-1])
+        push!(X, vec)
+        push!(y, arr[end])
+    end
+
     X, y
 end
 

@@ -1,7 +1,7 @@
 name = "KNearestCenters"
 uuid = "4dca28ae-43b8-11eb-1f5e-d55054101997"
 authors = ["Eric S. Tellez"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
@@ -18,11 +18,11 @@ StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 [compat]
 CategoricalArrays = "0.8, 0.9"
 JSON3 = "1.5"
-StructTypes = "1.2"
 KCenters = "0.4.1"
 MLDataUtils = "0.5"
 SimilaritySearch = "0.4.5"
 StatsBase = "0.32, 0.33"
+StructTypes = "1.2"
 julia = "1.1"
 
 [extras]
