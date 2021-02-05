@@ -48,6 +48,8 @@ struct KncConfigSpace <: AbstractConfigSpace
     minimum_elements_per_region::Vector{Integer}
 end
 
+Base.eltype(::KncConfigSpace) = KncConfig
+
 """
     KncConfigSpace(;
         kernel::Array=[k_(d_()) for k_ in [DirectKernel, ReluKernel],
@@ -113,11 +115,11 @@ function random_configuration(space::KncConfigSpace)
 end
 
 """
-    combine_configurations(space::KncConfigSpace, config_list)
+    combine_configurations(::Type{T}, config_list) where {T<:KncConfig}
 
 Creates a new configuration combining the given configurations
 """
-function combine_configurations(space::KncConfigSpace, config_list)
+function combine_configurations(::Type{T}, config_list) where {T<:KncConfig}
     _sel() = rand(config_list)
 
     a = _sel()  # select a basis element
