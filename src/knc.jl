@@ -33,25 +33,56 @@ StructTypes.StructType(::Type{<:Knc}) = StructTypes.Struct()
 
 Creates a Knc classifier using the given configuration and data.
 """
-
 function Knc(config::KncConfig, X, y::CategoricalArray; verbose=true)
     if config.ncenters == 0
+        # computes a set of #labels centers using labels for clustering
         verbose && println("Knc> clustering data with labels")
         D = kcenters(config.kernel.dist, X, y, config.centerselection)
         nclasses = length(levels(y))
         @assert nclasses <= length(D.centers)
         class_map = collect(Int32, 1:nclasses)
         Knc(config, D.centers, D.dmax, class_map, convert(Int32, nclasses), KnnResult(1))
-    else
-        verbose && println("Knc> clustering data")
+    elseif config.ncenters > 0
+        # computes a set of ncenters for all dataset
+        verbose && println("Knc> clustering data without knowing labels")
         D = kcenters(config.kernel.dist, X, config.ncenters;
-            sel=config.centerselection,
-            initial=config.initial_clusters,
-            recall=config.recall,
-            verbose=verbose,
-            maxiters=config.maxiters)
+                sel=config.centerselection,
+                initial=config.initial_clusters,
+                recall=config.recall,
+                verbose=verbose,
+                maxiters=config.maxiters)
         Knc(config, D, X, y; verbose=verbose)
-    end    
+    else
+        # computes a set of ncenters centers for each label
+        ncenters = abs(config.ncenters)
+        verbose && println("Knc> clustering data with label division")
+        nclasses = length(levels(y))
+        centers = eltype(X)[]
+        dmax = Float32[]
+        class_map = Int32[]
+        nclasses = length(levels(y))
+
+        for ilabel in 1:nclasses
+            mask = y.refs .== ilabel
+            X_ = X[mask]
+            D = kcenters(config.kernel.dist, X_, ncenters;
+                    sel=config.centerselection,
+                    initial=config.initial_clusters,
+                    recall=config.recall,
+                    verbose=verbose,
+                    maxiters=config.maxiters)
+            
+            for i in eachindex(D.centers)
+                if D.freqs[i] >= config.minimum_elements_per_region
+                    push!(centers, D.centers[i])
+                    push!(dmax, D.dmax[i])
+                    push!(class_map, ilabel)
+                end
+            end
+        end
+
+        Knc(config, centers, dmax, class_map, convert(Int32, nclasses), KnnResult(1))
+    end
 end
 
 function Knc(

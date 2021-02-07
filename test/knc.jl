@@ -59,12 +59,11 @@ end
     X, ylabels = loadiris()
     ylabels = categorical(ylabels)
     space = KncConfigSpace(
-        ncenters=[0, 3, 7],
+        ncenters=[-7, -3, 0, 3, 7],
         k=[1],
-        initial_clusters=[:fft, :rand, :dnet],
-        minimum_elements_per_region=[1, 2]
+        initial_clusters=[:fft, :dnet],
+        minimum_elements_per_region=[3]
     )
-
     
     ifolds = kfolds(shuffle!(collect(1:length(X))), 3)
     function evalmodel(config::KncConfig)
