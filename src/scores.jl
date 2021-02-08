@@ -80,20 +80,22 @@ function f1_score(gold, predict; weight=:macro)::Float64
 end
 
 """
-    classification_scores(gold, predicted)
+    classification_scores(gold, predicted; labelnames=nothing)
 
 Computes several scores for the given gold-standard and predictions, namely: 
-precision, recall, and f1 scores, for global and per-class granularity
+precision, recall, and f1 scores, for global and per-class granularity.
+If labelnames is given, then it is an array of label names.
 
 """
-function classification_scores(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
+function classification_scores(gold::AbstractVector{T1}, predicted::AbstractVector{T2}; labelnames=nothing) where {T1<:Integer} where {T2<:Integer}
     class_f1 = Dict()
 	class_precision = Dict()
 	class_recall = Dict()
 
     P = precision_recall(gold, predicted)
-	
+    
     for (k, v) in P.per_class
+        k = labelnames === nothing ? k : labelnames[k]
         class_f1[k] = f1_(v.precision, v.recall)
 		class_precision[k] = v.precision
 		class_recall[k] = v.recall
