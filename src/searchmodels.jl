@@ -16,6 +16,21 @@ Base.isequal(a::AbstractConfig, b::AbstractConfig) = isequal(repr(a), repr(b))
 function random_configuration end
 function combine_configurations end
 
+function combine_configurations(a::T, L::AbstractVector) where T
+    # L is a vector of pairs config => score
+    # L should be shuffled before combining
+    type_ = Base.typename(T)
+
+    for p in L
+        c = p.first
+        if Base.typename(typeof(c)) == type_
+            return combine_configurations(a, c)
+        end       
+    end
+
+    a
+end
+
 function search_models(
         configspace::AbstractConfigSpace,
         evaluate_model::Function,  # receives only the configuration to be evaluated
@@ -30,70 +45,79 @@ function search_models(
         distributed=false
     )
     
+    evaluated = Pair{AbstractConfig,Float64}[]
+    evalqueue = AbstractConfig[]
+    observed = Set{AbstractConfig}()
+
     for i in 1:m
-        configurations[random_configuration(configspace)] = -1.0
+        c = random_configuration(configspace)
+        if !(c in observed)
+            push!(evalqueue, c)
+            push!(observed, c)
+        end
     end
     
     prev = 0.0
     iter = 0
+    config_and_scores = Pair[]
+
     while iter <= maxiters
         iter += 1
 
         verbose && println(stderr, "SearchModels> ==== search params iter=$iter, tol=$tol, m=$m, bsize=$bsize, mutbsize=$mutbsize, crossbsize=$crossbsize, prev=$prev, $(length(configurations))")
-        S = Pair[]
-        for (config, score_) in configurations
-            score_ >= 0.0 && continue
+        empty!(config_and_scores)
+        for c in evalqueue
             perf = if distributed
-                @spawn evaluate_model(config)
+                @spawn evaluate_model(c)
             else
-                evaluate_model(config)
+                evaluate_model(c)
             end
-            push!(S, config => perf)
+
+            push!(config_and_scores, c => perf)
         end
         
         # fetching all results
-        for s in S
-            configurations[s.first] = fetch(s.second)
+        for s in config_and_scores
+            push!(evaluated, s.first => fetch(s.second))
         end
 
         verbose && println(stderr, "SearchModels> *** iteration $iter finished; starting combinations.")
 
         iter > maxiters && break
 
-        L = sort!(collect(configurations), by=x->x[2], rev=true)
-        curr = L[1][2]
+        sort!(evaluated, by=x->x.second, rev=true)
+        curr = evaluated[1].second
         if abs(curr - prev) <= tol     
             verbose && println(stderr, "SearchModels> *** stopping on iteration $iter due to a possible convergence ($curr ≃ $prev, tol: $tol)")
-            break
+            return evaluated
         end
 
         prev = curr
-        if verbose
-            println(stderr, "SearchModels> *** adding more items to the population: bsize=$bsize; #configurations=$(length(configurations)))")
-            println(stderr, "SearchModels> *** scores: ", [l[end] for l in L])
-            config__, score__ = L[1]
-            println(stderr, "SearchModels> *** best config with score $score__: ", [(k => getfield(config__, k)) for k in fieldnames(typeof(config__))])
-        end
+        verbose && println(stderr, "SearchModels> *** generating extra indivuals bsize=$bsize, mutbsize=$mutbsize, crossbsize=$crossbsize")
 
-        L =  AbstractConfig[L[i][1] for i in 1:min(bsize, length(L))]
-    
+        L = @view evaluated[1:min(bsize, length(evaluated))]
         for i in 1:mutbsize
-            conf = combine_configurations(rand(L), random_configuration(configspace))  # TODO force choosing the same type of config
-            if conf !== nothing && !haskey(configurations, conf)
-                configurations[conf] = -1.0
+            c = rand(L)
+            conf = combine_configurations(c.first, [random_configuration(configspace) => 0.0, c])
+            if !(conf in observed)
+                push!(evalqueue, conf)
+                push!(observed, conf)
             end
         end
 
         for i in 1:crossbsize
-            conf = combine_configurations(rand(L), rand(L)) # TODO force choosing the same type of config
-            if conf !== nothing && !haskey(configurations, conf)
-                configurations[conf] = -1.0
+            shuffle!(L) # the way this procedure is designed is to support heterogeneous options
+            i = rand(1:length(L))
+            L[end], L[i] = L[end], L[i]  
+            conf = combine_configurations(L[end].first, L)
+            if !(conf in observed)
+                push!(evalqueue, conf)
+                push!(observed, conf)
             end
         end
 
-        verbose && println(stderr, "SearchModels> *** finished with $(length(configurations)) configurations")
-    
+        verbose && println(stderr, "SearchModels> *** configurations evaluated=$(length(evaluated)), queue=$(length(evalqueue))")    
     end
 
-    sort!(collect(configurations), by=x->x[2], rev=true)
+    sort!(evaluated, by=x->x.second, rev=true)
 end
