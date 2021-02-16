@@ -2,6 +2,8 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 # based on Rocchio implementation (rocchio.jl) of https://github.com/sadit/TextSearch.jl
 
+using SearchModels
+import SearchModels: random_configuration, combine_configurations
 export KncConfigSpace, KncConfig, KCenters
 
 struct KncConfig{K_<:AbstractKernel, S_<:AbstractCenterSelection} <: AbstractConfig

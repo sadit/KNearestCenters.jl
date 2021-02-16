@@ -4,7 +4,7 @@
 using Test
 
 include("loaddata.jl")
-using KCenters, SimilaritySearch
+using KCenters, SearchModels, SimilaritySearch
 using Random, StatsBase, CategoricalArrays, MLDataUtils
 
 
@@ -73,7 +73,7 @@ end
             score += mean(predict.(model, X[itest]) .== ylabels[itest].refs)
         end
     
-        score / length(ifolds)
+        -score / length(ifolds)
     end
 
     best_list = search_models(space, evalmodel, 16;
@@ -86,5 +86,5 @@ end
     )
     config, score = best_list[1]
     @info "========== BEST MODEL ==========", config => score
-    @test score > 0.9
+    @test abs(score) > 0.9
 end

@@ -28,7 +28,6 @@ function softmax!(vec::AbstractVector)
     vec
 end
 
-include("searchmodels.jl")
 include("kncconfig.jl")
 include("knc.jl")
 
