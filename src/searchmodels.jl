@@ -78,14 +78,14 @@ function search_models(
         L =  AbstractConfig[L[i][1] for i in 1:min(bsize, length(L))]
     
         for i in 1:mutbsize
-            conf = combine_configurations(configspace, [rand(L), random_configuration(configspace)])
+            conf = combine_configurations(rand(L), random_configuration(configspace))
             if !haskey(configurations, conf)
                 configurations[conf] = -1.0
             end
         end
 
         for i in 1:crossbsize
-            conf = combine_configurations(configspace, L)
+            conf = combine_configurations(rand(L), rand(L))
             if !haskey(configurations, conf)
                 configurations[conf] = -1.0
             end

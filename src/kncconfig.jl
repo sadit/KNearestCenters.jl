@@ -115,21 +115,18 @@ function random_configuration(space::KncConfigSpace)
 end
 
 """
-    combine_configurations(::KncConfig, config_list)
+    combine_configurations(a::KncConfig, b::KncConfig)
 
 Creates a new configuration combining the given configurations
 """
-function combine_configurations(::KncConfigSpace, config_list)
-    _sel() = rand(config_list)
-
-    a = _sel()  # select a basis element
+function combine_configurations(a::KncConfig, b::KncConfig)
     KncConfig(
-        _sel().kernel,
-        _sel().centerselection,
+        b.kernel,
+        b.centerselection,
         a.k,
         a.ncenters,
         a.maxiters,
-        _sel().recall,
+        b.recall,
         a.initial_clusters,
         a.split_entropy,
         a.minimum_elements_per_region,
