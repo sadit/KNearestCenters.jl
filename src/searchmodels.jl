@@ -12,12 +12,9 @@ Base.isequal(a::AbstractConfig, b::AbstractConfig) = isequal(repr(a), repr(b))
 
 #function random_configuration(space::AbstractConfigSpace) end
 #function combine_configurations(space::AbstractConfigSpace, config_list::AbstractVector) end
-#function evaluate_model(config::AbstractConfig) end
 
 function random_configuration end
 function combine_configurations end
-combine_configurations(config::T, config_list) where {T<:AbstractConfig} = combine_configurations(typeof(config), config_list)
-combine_configurations(space::T, config_list) where {T<:AbstractConfigSpace} = combine_configurations(eltype(space), config_list)
 
 function search_models(
         configspace::AbstractConfigSpace,
@@ -79,16 +76,16 @@ function search_models(
         end
 
         L =  AbstractConfig[L[i][1] for i in 1:min(bsize, length(L))]
-        
+    
         for i in 1:mutbsize
-            conf = combine_configurations(eltype(configspace), [rand(L), random_configuration(configspace)])
+            conf = combine_configurations(configspace, [rand(L), random_configuration(configspace)])
             if !haskey(configurations, conf)
                 configurations[conf] = -1.0
             end
         end
 
         for i in 1:crossbsize
-            conf = combine_configurations(eltype(configspace), L)
+            conf = combine_configurations(configspace, L)
             if !haskey(configurations, conf)
                 configurations[conf] = -1.0
             end

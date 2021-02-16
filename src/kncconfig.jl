@@ -115,11 +115,11 @@ function random_configuration(space::KncConfigSpace)
 end
 
 """
-    combine_configurations(::Type{T}, config_list) where {T<:KncConfig}
+    combine_configurations(::KncConfig, config_list)
 
 Creates a new configuration combining the given configurations
 """
-function combine_configurations(::Type{T}, config_list) where {T<:KncConfig}
+function combine_configurations(::KncConfigSpace, config_list)
     _sel() = rand(config_list)
 
     a = _sel()  # select a basis element
