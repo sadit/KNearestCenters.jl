@@ -76,15 +76,14 @@ end
         -score / length(ifolds)
     end
 
-    best_list = search_models(space, evalmodel, 16;
-        bsize=12,
-        mutbsize=4,
-        crossbsize=4,
+    best_list = search_models(space, evalmodel, 32;
+        bsize=8,
+        mutbsize=8,
+        crossbsize=8,
         tol=-1.0,
         maxiters=4,
         verbose=true
     )
-    config, score = best_list[1]
-    @info "========== BEST MODEL ==========", config => score
-    @test abs(score) > 0.9
+    @info "========== BEST MODEL ==========", best_list[1]
+    @test abs(best_list[1].second) > 0.9
 end
