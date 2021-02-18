@@ -38,7 +38,7 @@ KncConfig(;
         kernel, centerselection, k, ncenters, maxiters,
         recall, initial_clusters, split_entropy, minimum_elements_per_region)
 
-struct KncConfigSpace <: AbstractConfigSpace
+struct KncConfigSpace <: AbstractSolutionSpace
     kernel::Array{AbstractKernel}
     centerselection::Vector{AbstractCenterSelection}
     k::Vector{Integer}
