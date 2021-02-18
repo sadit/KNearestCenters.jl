@@ -6,7 +6,7 @@ using SearchModels
 import SearchModels: random_configuration, combine_configurations
 export KncConfigSpace, KncConfig, KCenters
 
-struct KncConfig{K_<:AbstractKernel, S_<:AbstractCenterSelection} <: AbstractConfig
+struct KncConfig{K_<:AbstractKernel, S_<:AbstractCenterSelection}
     kernel::K_
     centerselection::S_
 
