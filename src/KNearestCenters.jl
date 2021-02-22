@@ -3,10 +3,16 @@
 
 module KNearestCenters
 
-using KCenters, StructTypes
+using StructTypes, Parameters, LinearAlgebra, CategoricalArrays, StatsBase
+using SearchModels, KCenters, SimilaritySearch
+import SearchModels: random_configuration, combine_configurations
+import StatsBase: predict
+
+export Knc, KncConfig, KncConfigSpace, KncProto, KncProtoConfig, KncProtoConfigSpace, KncPerClassConfigSpace, KncGlobalConfigSpace
+export transform, predict
+
 include("scores.jl")  # TODO change supervised learning scores to this package
 include("criterions.jl")
-include("vorhist.jl")
 include("kernels.jl")
 
 """
@@ -28,8 +34,8 @@ function softmax!(vec::AbstractVector)
     vec
 end
 
-include("kncconfig.jl")
 include("knc.jl")
+include("kncproto.jl")
 
 """
     transform(nc::Knc, kernel::Function, X, normalize!::Function=softmax!)

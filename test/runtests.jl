@@ -17,3 +17,4 @@ using KNearestCenters
 end
 
 include("knc.jl")
+include("kncproto.jl")
