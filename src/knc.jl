@@ -27,7 +27,6 @@ function random_configuration(space::KncConfigSpace)
     #s = rand(0.8f0:0.01f0:1.0f0, space.nclasses)
     #s = ones(Float32, space.nclasses)
     KncConfig(rand(space.kernel), rand(space.centerselection))
-
 end
 
 """
