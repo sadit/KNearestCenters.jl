@@ -20,5 +20,5 @@ deploydocs(;
     repo="github.com/sadit/KNearestCenters.jl",
     devbranch="main",
     branch = "gh-pages",
-    versions = ["stable" => "v^", "v#.#"]
+    versions = ["stable" => "v^", "v#.#.#"]
 )
