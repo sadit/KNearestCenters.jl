@@ -19,25 +19,27 @@ end
 Base.eltype(::KncConfigSpace) = KncConfig
 
 """
-    random_configuration(space::KncConfigSpace)
+    rand(space::KncConfigSpace)
 
 Creates a random `KncConfig` instance based on the `space` definition.
 """
-function random_configuration(space::KncConfigSpace)
+function Base.rand(space::KncConfigSpace)
     #s = rand(0.8f0:0.01f0:1.0f0, space.nclasses)
     #s = ones(Float32, space.nclasses)
     KncConfig(rand(space.kernel), rand(space.centerselection))
 end
 
 """
-    combine_configurations(a::KncConfig, b::KncConfig)
+    combine(a::KncConfig, b::KncConfig)
 
 Creates a new configuration combining the given configurations
 """
-function combine_configurations(a::KncConfig, b::KncConfig)
-    L = [a, b]
-    # m = (a.scale .+ b.scale) ./ 2
-    KncConfig(rand(L).kernel, rand(L).centerselection)
+function combine(a::KncConfig, b::KncConfig)
+    KncConfig(a.kernel, b.centerselection)
+end
+
+function mutate(space::KncConfigSpace, c::KncConfig, iter)
+    combine(c, rand(space))
 end
 
 """

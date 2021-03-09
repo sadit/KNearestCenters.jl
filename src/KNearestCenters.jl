@@ -5,7 +5,7 @@ module KNearestCenters
 
 using StructTypes, Parameters, LinearAlgebra, CategoricalArrays, StatsBase
 using SearchModels, KCenters, SimilaritySearch
-import SearchModels: random_configuration, combine_configurations
+import SearchModels: combine, mutate
 import StatsBase: predict
 
 export Knc, KncConfig, KncConfigSpace, KncProto, KncProtoConfig, KncProtoConfigSpace, KncPerClassConfigSpace, KncGlobalConfigSpace

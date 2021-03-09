@@ -43,11 +43,11 @@ Base.eltype(::KncProtoConfigSpace) = KncProtoConfig
 _fix_ncenters(ncenters) = ncenters in (0, 1) ? 2 : ncenters
 
 """
-    random_configuration(space::KncProtoConfigSpace)
+    rand(space::KncProtoConfigSpace)
 
 Creates a random `KncProtoConfig` instance based on the `space` definition.
 """
-function random_configuration(space::KncProtoConfigSpace{KindProto,MutProb}) where {KindProto,MutProb}
+function Base.rand(space::KncProtoConfigSpace{KindProto,MutProb}) where {KindProto,MutProb}
     ncenters = _fix_ncenters(rand(space.ncenters) * KindProto)
     config = KncProtoConfig(
         rand(space.kernel),
@@ -63,11 +63,11 @@ function random_configuration(space::KncProtoConfigSpace{KindProto,MutProb}) whe
 end
 
 """
-    combine_configurations(a::KncProtoConfig, b::KncProtoConfig)
+    combine(a::KncProtoConfig, b::KncProtoConfig)
 
 Creates a new configuration combining the given configurations
 """
-function combine_configurations(a::KncProtoConfig, b::KncProtoConfig)
+function combine(a::KncProtoConfig, b::KncProtoConfig)
     KncProtoConfig(
         b.kernel,
         b.centerselection,
@@ -82,19 +82,19 @@ function combine_configurations(a::KncProtoConfig, b::KncProtoConfig)
 end
 
 """
-    mutate_configuration(space::KncProtoConfigSpace, a::KncProtoConfig, iter)
+    mutate(space::KncProtoConfigSpace, a::KncProtoConfig, iter)
 
 Creates a new configuration based on a slight perturbation of `a`
 """
-function mutate_configuration(space::KncProtoConfigSpace, a::KncProtoConfig, iter)
+function mutate(space::KncProtoConfigSpace, a::KncProtoConfig, iter)
     KncProtoConfig(
-        a.kernel,
-        b.centerselection,
+        SearchModels.change(a.kernel, space.kernel),
+        SearchModels.change(a.centerselection, space.centerselection),
         SearchModels.scale(a.k; space.scale_k...),
         a.ncenters,
         SearchModels.scale(a.k; space.scale_maxiters...),
         SearchModels.scale(a.k; space.scale_recall...),
-        a.initial_clusters,
+        SearchModels.change(a.initial_clusters, space.initial_clusters),
         SearchModels.scale(a.k; space.scale_split_entropy...),
         SearchModels.scale(a.k; space.scale_minimum_elements_per_region...)
     )
