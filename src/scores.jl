@@ -87,7 +87,7 @@ precision, recall, and f1 scores, for global and per-class granularity.
 If labelnames is given, then it is an array of label names.
 
 """
-function classification_scores(gold::AbstractVector, predicted::AbstractVector{T2}; labelnames=nothing) where {T1<:Integer} where {T2<:Integer}
+function classification_scores(gold::AbstractVector, predicted::AbstractVector; labelnames=nothing)
     class_f1 = Dict()
 	class_precision = Dict()
 	class_recall = Dict()
