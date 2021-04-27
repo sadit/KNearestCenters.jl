@@ -16,9 +16,9 @@ It applies the desired weighting scheme for binary and multiclass problems
 """
 function recall_score(gold, predicted; weight=:macro)::Float64
     P = precision_recall(gold, predicted)
-    if weight == :macro
+    if weight === :macro
         mean(x -> x.recall, values(P.per_class))
-    elseif weight == :weighted
+    elseif weight === :weighted
         mean(x -> x.recall * x.population / length(gold), values(P.per_class))
     elseif :micro
         P.recall
@@ -39,11 +39,11 @@ It applies the desired weighting scheme for binary and multiclass problems
 """
 function precision_score(gold, predicted; weight=:macro)::Float64
     P = precision_recall(gold, predicted)
-    if weight == :macro
+    if weight === :macro
         mean(x -> x.precision, values(P.per_class))
-    elseif weight == :weighted
+    elseif weight === :weighted
         mean(x -> x.precision * x.population / length(gold), values(P.per_class))
-    elseif weight == :micro
+    elseif weight === :micro
         P.precision
     else
         throw(Exception("Unknown weighting method $weight"))
@@ -68,11 +68,11 @@ It applies the desired weighting scheme for binary and multiclass problems
 """
 function f1_score(gold, predicted; weight=:macro)::Float64
     P = precision_recall(gold, predicted)
-    if weight == :macro
+    if weight === :macro
         mean(x -> f1_(x.precision, x.recall), values(P.per_class))
-    elseif weight == :weighted
+    elseif weight === :weighted
         mean(x -> f1_(x.precision,x.recall) * x.population / length(gold), values(P.per_class))
-    elseif weight == :micro
+    elseif weight === :micro
         f1_(P.precision, P.recall)
     else
         throw(Exception("Unknown weighting method $weight"))
