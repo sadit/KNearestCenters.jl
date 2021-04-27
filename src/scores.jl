@@ -169,11 +169,11 @@ function precision_recall(gold::AbstractVector, predicted::AbstractVector)
 end
 
 """
-    accuracy_score(gold::T, predicted::T) where T
+    accuracy_score(gold, predicted)
 
 Computes the accuracy score between the gold and the predicted sets
 """
-function accuracy_score(gold::AbstractVector, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
+function accuracy_score(gold::AbstractVector, predicted::AbstractVector)
     #  mean(gold .== predicted)
     c = 0
     for i in 1:length(gold)
