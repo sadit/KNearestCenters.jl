@@ -5,7 +5,7 @@ export accuracy_score, precision_recall, precision_score, recall_score, f1_score
 
 ## classification scores
 """
-    recall_score(gold, predict; weight=:macro)::Float64
+    recall_score(gold, predicted; weight=:macro)::Float64
 
 It computes the recall between the gold dataset and the list of predictions `predict`
 
@@ -14,8 +14,8 @@ It applies the desired weighting scheme for binary and multiclass problems
 - `:weigthed` the weight of each class is proportional to its population in gold
 - `:micro` returns the global recall, without distinguishing among classes
 """
-function recall_score(gold, predict; weight=:macro)::Float64
-    P = precision_recall(gold, predict)
+function recall_score(gold, predicted; weight=:macro)::Float64
+    P = precision_recall(gold, predicted)
     if weight == :macro
         mean(x -> x.recall, values(P.per_class))
     elseif weight == :weighted
@@ -28,7 +28,7 @@ function recall_score(gold, predict; weight=:macro)::Float64
 end
 
 """
-    precision_score(gold, predict; weight=:macro)::Float64
+    precision_score(gold, predicted; weight=:macro)::Float64
 
 It computes the precision between the gold dataset and the list of predictions `predict`
 
@@ -37,8 +37,8 @@ It applies the desired weighting scheme for binary and multiclass problems
 - `:weigthed` the weight of each class is proportional to its population in gold
 - `:micro` returns the global precision, without distinguishing among classes
 """
-function precision_score(gold, predict; weight=:macro)::Float64
-    P = precision_recall(gold, predict)
+function precision_score(gold, predicted; weight=:macro)::Float64
+    P = precision_recall(gold, predicted)
     if weight == :macro
         mean(x -> x.precision, values(P.per_class))
     elseif weight == :weighted
@@ -57,17 +57,17 @@ function f1_(p, r)::Float64
 end
 
 """
-    f1_score(gold, predict; weight=:macro)::Float64
+    f1_score(gold, predicted; weight=:macro)::Float64
 
-It computes the F1 score between the gold dataset and the list of predictions `predict`
+It computes the F1 score between the gold dataset and the list of predictions `predicted`
 
 It applies the desired weighting scheme for binary and multiclass problems
 - `:macro` performs a uniform weigth to each class
 - `:weigthed` the weight of each class is proportional to its population in gold
 - `:micro` returns the global F1, without distinguishing among classes
 """
-function f1_score(gold, predict; weight=:macro)::Float64
-    P = precision_recall(gold, predict)
+function f1_score(gold, predicted; weight=:macro)::Float64
+    P = precision_recall(gold, predicted)
     if weight == :macro
         mean(x -> f1_(x.precision, x.recall), values(P.per_class))
     elseif weight == :weighted
@@ -87,7 +87,7 @@ precision, recall, and f1 scores, for global and per-class granularity.
 If labelnames is given, then it is an array of label names.
 
 """
-function classification_scores(gold::AbstractVector{T1}, predicted::AbstractVector{T2}; labelnames=nothing) where {T1<:Integer} where {T2<:Integer}
+function classification_scores(gold::AbstractVector, predicted::AbstractVector{T2}; labelnames=nothing) where {T1<:Integer} where {T2<:Integer}
     class_f1 = Dict()
 	class_precision = Dict()
 	class_recall = Dict()
@@ -115,12 +115,12 @@ function classification_scores(gold::AbstractVector{T1}, predicted::AbstractVect
 end
 
 """
-    precision_recall(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer
+    precision_recall(gold::AbstractVector, predicted::AbstractVector) where {T1<:Integer} where {T2<:Integer
 
 Computes the global and per-class precision and recall values between the gold standard
 and the predicted set
 """
-function precision_recall(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
+function precision_recall(gold::AbstractVector, predicted::AbstractVector)
     labels = unique(gold)
     M = Dict{typeof(labels[1]), NamedTuple}()
     tp_ = 0
@@ -173,7 +173,7 @@ end
 
 Computes the accuracy score between the gold and the predicted sets
 """
-function accuracy_score(gold::AbstractVector{T1}, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
+function accuracy_score(gold::AbstractVector, predicted::AbstractVector{T2}) where {T1<:Integer} where {T2<:Integer}
     #  mean(gold .== predicted)
     c = 0
     for i in 1:length(gold)
