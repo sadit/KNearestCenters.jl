@@ -15,7 +15,6 @@
     minimum_elements_per_region::Int = 3
 end
 
-StructTypes.StructType(::Type{<:KncProtoConfig}) = StructTypes.Struct()
 config_type(knc::KncProtoConfig) = (KncProtoConfig, sign(knc.ncenters))
 
 @with_kw struct KncProtoConfigSpace{KindProto,MutProb} <: AbstractSolutionSpace
@@ -116,8 +115,6 @@ struct KncProto{DataType<:AbstractVector, K_<:KncProtoConfig}
     nclasses::Int32
     res::KnnResult
 end
-
-StructTypes.StructType(::Type{<:KncProto}) = StructTypes.Struct()
 
 """
     KncProto(config::KncProtoConfig, X, y::CategoricalArray; verbose=true)
@@ -253,7 +250,7 @@ end
 Summary function that computes the label as the most frequent label among labels of the k nearest prototypes (categorical labels)
 """
 function most_frequent_label(nc::KncProto, res::KnnResult)
-    c = counts([nc.class_map[p.id] for p in res], 1:nc.nclasses)
+    c = counts([nc.class_map[id] for (id, dist) in res], 1:nc.nclasses)
     findmax(c)[end]
 end
 
@@ -263,7 +260,7 @@ end
 Summary function that computes the label as the mean of the k nearest labels (ordinal classification)
 """
 function mean_label(nc::KncProto, res::KnnResult)
-    round(Int, mean([nc.class_map[p.id] for p in res]))
+    round(Int, mean([nc.class_map[id] for (id, dist) in res]))
 end
 
 """

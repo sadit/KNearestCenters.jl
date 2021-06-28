@@ -9,8 +9,6 @@ end
 #KncConfig(nclasses; dist=L2Distance(), centerselection=CentroidSelection()) =
 #    KncConfig(dist, centerselection)
 
-StructTypes.StructType(::Type{<:KncConfig}) = StructTypes.Struct()
-
 @with_kw struct KncConfigSpace <: AbstractSolutionSpace
     kernel = [k_(d_()) for k_ in [DirectKernel, ReluKernel, GaussianKernel], d_ in [L2Distance, CosineDistance]]
     centerselection = [CentroidSelection(), RandomCenterSelection(), MedoidSelection(), KnnCentroidSelection()]
@@ -52,8 +50,6 @@ struct Knc{DataType<:AbstractVector, K_<:KncConfig}
     res::KnnResult
 end
 
-StructTypes.StructType(::Type{<:Knc}) = StructTypes.Struct()
-
 """
     Knc(config::KncConfig, X, y::CategoricalArray; verbose=true)
 
@@ -74,7 +70,7 @@ function predict(nc::Knc, x, res::KnnResult=nc.res)
         push!(res, i, d)
     end
 
-    first(res).id
+    argmin(res)
 end
 
 function Base.broadcastable(nc::Knc)

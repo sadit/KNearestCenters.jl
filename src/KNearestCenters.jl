@@ -3,7 +3,7 @@
 
 module KNearestCenters
 
-using StructTypes, Parameters, LinearAlgebra, CategoricalArrays, StatsBase
+using Parameters, LinearAlgebra, CategoricalArrays, StatsBase
 using SearchModels, KCenters, SimilaritySearch
 import SearchModels: combine, mutate
 import StatsBase: predict

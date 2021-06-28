@@ -5,7 +5,7 @@ using Test
 
 include("loaddata.jl")
 using KCenters, SearchModels, SimilaritySearch
-using Random, StatsBase, CategoricalArrays, MLDataUtils, JSON3
+using Random, StatsBase, CategoricalArrays, MLDataUtils
 Random.seed!(1)
 
 @testset "KncProto" begin
@@ -44,9 +44,7 @@ end
             err += mean(predict.(model, X[itest]) .== ylabels[itest].refs)
         end
     
-        err = 1.0 - err / length(ifolds)
-        println(stderr, err, "\t", typeof(config), "\t", JSON3.write(config))
-        err    
+        1.0 - err / length(ifolds)
     end
 
     best_list = search_models(space, errfun, 32;
@@ -77,9 +75,7 @@ end
             err += mean(predict.(model, X[itest]) .== ylabels[itest].refs)
         end
     
-        err = 1.0 - err / length(ifolds)
-        println(stderr, err, "\t", typeof(config), "\t", JSON3.write(config))
-        err    
+        1.0 - err / length(ifolds)
     end
 
     best_list = search_models(space, errfun, 32;

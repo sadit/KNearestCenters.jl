@@ -5,7 +5,7 @@ using Test
 
 include("loaddata.jl")
 using KCenters, SearchModels, SimilaritySearch
-using Random, JSON3, StatsBase, CategoricalArrays, MLDataUtils
+using Random, StatsBase, CategoricalArrays, MLDataUtils
 
 @testset "NearestCenter search_models" begin
     X, ylabels = loadiris()
@@ -21,9 +21,7 @@ using Random, JSON3, StatsBase, CategoricalArrays, MLDataUtils
             err += mean(yhat .== ylabels[itest].refs)
         end
     
-        err = 1.0 - err / length(ifolds)
-        println(stderr, err, "\t", typeof(config), "\t", JSON3.write(config))
-        err        
+        1.0 - err / length(ifolds)
     end
 
     best_list = search_models(space, errorfun, 16;

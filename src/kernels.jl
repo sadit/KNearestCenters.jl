@@ -34,15 +34,6 @@ struct DirectKernel{DistType<:PreMetric} <: AbstractKernel
     dist::DistType
 end
 
-StructTypes.StructType(::Type{<:GaussianKernel}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:LaplacianKernel}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:CauchyKernel}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:SigmoidKernel}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:ReluKernel}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:TanhKernel}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:DirectKernel}) = StructTypes.Struct()
-
-
 
 """
     evaluate(kernel::GaussianKernel, a, b, σ::AbstractFloat)::Float64
