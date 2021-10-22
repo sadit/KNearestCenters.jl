@@ -1,5 +1,4 @@
 # This file is a part of KNearestCenters.jl
-# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 export size_criterion, sqrt_criterion, change_criterion, fun_criterion, log_criterion, epsilon_criterion, salesman_criterion
 
