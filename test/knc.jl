@@ -15,7 +15,7 @@ using Random, StatsBase, CategoricalArrays, MLDataUtils
     function errorfun(config::KncConfig)
         err = 0.0
         for (itrain, itest) in ifolds
-            model = Knc(config, X[itrain], ylabels[itrain])
+            model = Knc(config, VectorDatabase(X[itrain]), ylabels[itrain])
             yhat = predict.(model, X[itest])
             err += mean(yhat .== ylabels[itest].refs)
         end
@@ -23,13 +23,14 @@ using Random, StatsBase, CategoricalArrays, MLDataUtils
         1.0 - err / length(ifolds)
     end
 
-    best_list = search_models(space, errorfun, 16;
-        bsize=8,
-        mutbsize=4,
-        crossbsize=8,
-        tol=-1.0,
-        maxiters=16,
-        verbose=true
+    best_list = search_models(errorfun, space, 16, SearchParams(
+            bsize=8,
+            mutbsize=4,
+            crossbsize=8,
+            tol=-1.0,
+            maxiters=16,
+            verbose=true
+        )
     )
 
     B = best_list[1]

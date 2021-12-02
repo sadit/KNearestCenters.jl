@@ -46,13 +46,14 @@ end
         1.0 - err / length(ifolds)
     end
 
-    best_list = search_models(space, errfun, 32;
-        bsize=8,
-        mutbsize=8,
-        crossbsize=8,
-        tol=-1.0,
-        maxiters=4,
-        verbose=true
+    best_list = search_models(errfun, space, 32, SearchParams(
+            bsize=8,
+            mutbsize=8,
+            crossbsize=8,
+            tol=-1.0,
+            maxiters=4,
+            verbose=true
+        )
     )
     @info "========== BEST MODEL ==========", best_list[1]
     @test 1 - best_list[1].second > 0.9
@@ -77,13 +78,14 @@ end
         1.0 - err / length(ifolds)
     end
 
-    best_list = search_models(space, errfun, 32;
-        bsize=8,
-        mutbsize=8,
-        crossbsize=8,
-        tol=-1.0,
-        maxiters=4,
-        verbose=true
+    best_list = search_models(errfun, space, 32, SearchParams(
+            bsize=8,
+            mutbsize=8,
+            crossbsize=8,
+            tol=-1.0,
+            maxiters=4,
+            verbose=true
+        )
     )
     @info "========== BEST MODEL ==========", best_list[1]
     @test 1 - best_list[1].second > 0.9

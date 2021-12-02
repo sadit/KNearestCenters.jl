@@ -42,7 +42,7 @@ end
 """
 A nearest centroid classifier with support for kernel functions
 """
-struct Knc{DataType<:AbstractVector, K_<:KncConfig}
+struct Knc{DataType, K_<:KncConfig}
     config::K_
     centers::DataType
     dmax::Vector{Float32}
