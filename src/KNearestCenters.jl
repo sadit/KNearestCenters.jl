@@ -10,6 +10,20 @@ import StatsBase: predict
 export Knc, KncConfig, KncConfigSpace, KncProto, KncProtoConfig, KncProtoConfigSpace, KncPerClassConfigSpace, KncGlobalConfigSpace
 export transform, predict
 
+function labelmap(L)
+    D = Dict{Int,Vector{Int}}()
+    for (i, c) in enumerate(L)
+        lst = get(D, c, nothing)
+        if lst === nothing
+            D[c] = [i]
+        else
+            push!(lst, i)
+        end
+    end
+    
+    D
+end
+
 include("scores.jl")  # TODO change supervised learning scores to this package
 include("criterions.jl")
 include("kernels.jl")

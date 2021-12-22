@@ -1,35 +1,35 @@
 # This file is a part of KNearestCenters.jl
 
 export AbstractKernel, GaussianKernel, LaplacianKernel, CauchyKernel, SigmoidKernel, ReluKernel, TanhKernel, DirectKernel
-import SimilaritySearch: evaluate, PreMetric
+import SimilaritySearch: evaluate, SemiMetric
 
 abstract type AbstractKernel end
 
-struct GaussianKernel{DistType<:PreMetric} <: AbstractKernel
+struct GaussianKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 
-struct LaplacianKernel{DistType<:PreMetric} <: AbstractKernel
+struct LaplacianKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 
-struct CauchyKernel{DistType<:PreMetric} <: AbstractKernel
+struct CauchyKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 
-struct SigmoidKernel{DistType<:PreMetric} <: AbstractKernel
+struct SigmoidKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 
-struct ReluKernel{DistType<:PreMetric} <: AbstractKernel
+struct ReluKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 
-struct TanhKernel{DistType<:PreMetric} <: AbstractKernel
+struct TanhKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 
-struct DirectKernel{DistType<:PreMetric} <: AbstractKernel
+struct DirectKernel{DistType<:SemiMetric} <: AbstractKernel
     dist::DistType
 end
 

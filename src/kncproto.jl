@@ -106,7 +106,7 @@ end
 """
 A simple nearest centroid classifier with support for kernel functions
 """
-struct KncProto{DataType<:AbstractVector, K_<:KncProtoConfig}
+struct KncProto{DataType<:AbstractDatabase, K_<:KncProtoConfig}
     config::K_
     centers::DataType
     dmax::Vector{Float32}
@@ -128,7 +128,7 @@ Creates a KncProto classifier using the given configuration and data.
 """
 function KncProto(config::KncProtoConfig, X, y::CategoricalArray; verbose=true)
     config.ncenters == 0 && error("invalid ncenter $ncenters; ncenters <= -2 or 2 <= ncenters; please use plain Knc otherwise")
-
+    X = convert(AbstractDatabase, X)
     if config.ncenters > 0
         # computes a set of ncenters for all dataset
         verbose && println(stderr, "KncProto> clustering data without knowing labels", config)
@@ -144,14 +144,16 @@ function KncProto(config::KncProtoConfig, X, y::CategoricalArray; verbose=true)
         ncenters = abs(config.ncenters)
         verbose && println(stderr, "KncProto> clustering data with label division", config)
         nclasses = length(levels(y))
-        centers = eltype(X)[]
+        centers = VectorDatabase(eltype(X))
         dmax = Float32[]
         class_map = Int32[]
         nclasses = length(levels(y))
 
+        M = labelmap(y.refs)
         for ilabel in 1:nclasses
-            mask = y.refs .== ilabel
-            X_ = X[mask]
+            L = get(M, ilabel, nothing)
+            L === nothing && continue
+            X_ = SubDatabase(X, L)
             D = kcenters(config.kernel.dist, X_, ncenters;
                     sel=config.centerselection,
                     initial=config.initial_clusters,
@@ -175,11 +177,12 @@ end
 function KncProto(
         config::KncProtoConfig,
         input_clusters::ClusteringData,
-        train_X::AbstractVector,
+        train_X,
         train_y::CategoricalArray;
         verbose=false
     )
-    centers = eltype(train_X)[] # clusters
+    train_X = convert(AbstractDatabase, train_X)
+    centers = VectorDatabase(eltype(train_X)) # clusters
     classes = Int32[] # class mapping between clusters and classes
     dmax = Float32[]
     ncenters = length(input_clusters.centers)
@@ -190,7 +193,6 @@ function KncProto(
         lst = Int[pos for (pos, c) in enumerate(input_clusters.codes) if c == centerID] # objects related to this centerID
         ylst = @view train_y.refs[lst] # real labels related to this centerID
         freqs = counts(ylst, 1:nclasses) # histogram of labels in this centerID
-        @info freqs
         labels = findall(f -> f >= config.minimum_elements_per_region, freqs)
 
         # compute entropy of the set of labels
@@ -215,7 +217,7 @@ function KncProto(
 
         if e > config.split_entropy            
             for l in labels
-                XX = [train_X[lst[pos]] for (pos, c) in enumerate(ylst) if c == l]
+                XX = SubDatabase(train_X, [lst[pos] for (pos, c) in enumerate(ylst) if c == l])
                 c = center(config.centerselection, XX)
                 push!(centers, c)
                 push!(classes, l)
@@ -227,12 +229,13 @@ function KncProto(
                 push!(dmax, d)
             end
         else
-            push!(centers, input_clusters.centers[centerID])
+            c = input_clusters.centers[centerID]
+            push!(centers, c)
             freq, pos = findmax(freqs)
             push!(classes, pos)
             d = 0.0
             for objID in lst
-                d_ = evaluate(config.kernel.dist, train_X[objID], centers[end])
+                d_ = evaluate(config.kernel.dist, train_X[objID], c)
                 d = max(d, convert(Float64, d_))
             end
             push!(dmax, d)
@@ -244,12 +247,12 @@ function KncProto(
 end
 
 """
-    most_frequent_label(nc::KncProto, res::KnnResult)
+    most_frequent_label(nc::KncProto, res::KnnResult, st::KnnResultState)
 
 Summary function that computes the label as the most frequent label among labels of the k nearest prototypes (categorical labels)
 """
-function most_frequent_label(nc::KncProto, res::KnnResult)
-    c = counts([nc.class_map[id] for (id, dist) in res], 1:nc.nclasses)
+function most_frequent_label(nc::KncProto, res::KnnResult, st::KnnResultState)
+    c = counts([nc.class_map[id] for id in idview(res, st)], 1:nc.nclasses)
     findmax(c)[end]
 end
 
@@ -268,20 +271,16 @@ end
 
 Predicts the class of `x` using the label of the `k` nearest centers under the `kernel` function.
 """
-function predict(nc::KncProto, x, res::KnnResult)
+function predict(nc::KncProto, x, res::KnnResult=reuse!(nc.res))
     C = nc.centers
+    st = initialstate(res)
     dmax = nc.dmax
     for i in eachindex(C)
         s = evaluate(nc.config.kernel, x, C[i], dmax[i])
-        push!(res, i, -s)
+        st = push!(res, st, i, -s)
     end
 
-    most_frequent_label(nc, res)
-end
-
-function predict(nc::KncProto, x)
-    empty!(nc.res)
-    predict(nc, x, nc.res)
+    most_frequent_label(nc, res, st)
 end
 
 function Base.broadcastable(nc::KncProto)

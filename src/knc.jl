@@ -61,15 +61,15 @@ function Knc(config::KncConfig, X, y::CategoricalArray; verbose=true)
     Knc(config, D.centers, D.dmax, KnnResult(1))
 end
 
-function predict(nc::Knc, x, res::KnnResult=nc.res)
-    empty!(nc.res)
+function predict(nc::Knc, x, res::KnnResult=reuse!(nc.res))
     C = nc.centers
+    st = initialstate(res)
     for i in eachindex(C)
         d = -evaluate(nc.config.kernel, x, C[i], nc.dmax[i])
-        push!(res, i, d)
+        st = push!(res, st, i, d)
     end
 
-    argmin(res)
+    argmin(res, st)
 end
 
 function Base.broadcastable(nc::Knc)
