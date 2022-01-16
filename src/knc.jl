@@ -63,13 +63,12 @@ end
 
 function predict(nc::Knc, x, res::KnnResult=reuse!(nc.res))
     C = nc.centers
-    st = initialstate(res)
     for i in eachindex(C)
         d = -evaluate(nc.config.kernel, x, C[i], nc.dmax[i])
-        st = push!(res, st, i, d)
+        push!(res, i, d)
     end
 
-    argmin(res, st)
+    argmin(res)
 end
 
 function Base.broadcastable(nc::Knc)

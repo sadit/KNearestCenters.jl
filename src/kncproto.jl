@@ -247,12 +247,12 @@ function KncProto(
 end
 
 """
-    most_frequent_label(nc::KncProto, res::KnnResult, st::KnnResultState)
+    most_frequent_label(nc::KncProto, res::KnnResult)
 
 Summary function that computes the label as the most frequent label among labels of the k nearest prototypes (categorical labels)
 """
-function most_frequent_label(nc::KncProto, res::KnnResult, st::KnnResultState)
-    c = counts([nc.class_map[id] for id in idview(res, st)], 1:nc.nclasses)
+function most_frequent_label(nc::KncProto, res::KnnResult)
+    c = counts([nc.class_map[id] for id in idview(res)], 1:nc.nclasses)
     findmax(c)[end]
 end
 
@@ -273,14 +273,13 @@ Predicts the class of `x` using the label of the `k` nearest centers under the `
 """
 function predict(nc::KncProto, x, res::KnnResult=reuse!(nc.res))
     C = nc.centers
-    st = initialstate(res)
     dmax = nc.dmax
     for i in eachindex(C)
         s = evaluate(nc.config.kernel, x, C[i], dmax[i])
-        st = push!(res, st, i, -s)
+        push!(res, i, -s)
     end
 
-    most_frequent_label(nc, res, st)
+    most_frequent_label(nc, res)
 end
 
 function Base.broadcastable(nc::KncProto)
