@@ -1,6 +1,6 @@
 # This file is a part of KNearestCenters.jl
 
-using Test
+using Test, SimilaritySearch
 
 function loadiris()
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
@@ -19,7 +19,7 @@ function loadiris()
         push!(y, arr[end])
     end
 
-    X, y
+    VectorDatabase(X), y
 end
 
 

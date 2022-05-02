@@ -54,7 +54,7 @@ end
 
 Creates a Knc classifier using the given configuration and data.
 """
-function Knc(config::KncConfig, X, y::CategoricalArray; verbose=true)
+function Knc(config::KncConfig, X::AbstractDatabase, y::CategoricalArray; verbose=true)
     # computes a set of #labels centers using labels for clustering
     D = kcenters(config.kernel.dist, X, y, config.centerselection)
     @assert length(levels(y)) == length(D.centers)

@@ -126,9 +126,8 @@ end
 
 Creates a KncProto classifier using the given configuration and data.
 """
-function KncProto(config::KncProtoConfig, X, y::CategoricalArray; verbose=true)
+function KncProto(config::KncProtoConfig, X::AbstractDatabase, y::CategoricalArray; verbose=true)
     config.ncenters == 0 && error("invalid ncenter $ncenters; ncenters <= -2 or 2 <= ncenters; please use plain Knc otherwise")
-    X = convert(AbstractDatabase, X)
     if config.ncenters > 0
         # computes a set of ncenters for all dataset
         verbose && println(stderr, "KncProto> clustering data without knowing labels", config)
@@ -144,7 +143,7 @@ function KncProto(config::KncProtoConfig, X, y::CategoricalArray; verbose=true)
         ncenters = abs(config.ncenters)
         verbose && println(stderr, "KncProto> clustering data with label division", config)
         nclasses = length(levels(y))
-        centers = VectorDatabase(eltype(X))
+        centers = eltype(X)[]
         dmax = Float32[]
         class_map = Int32[]
         nclasses = length(levels(y))
@@ -170,19 +169,19 @@ function KncProto(config::KncProtoConfig, X, y::CategoricalArray; verbose=true)
             end
         end
 
-        KncProto(config, centers, dmax, class_map, convert(Int32, nclasses), KnnResult(1))
+        KncProto(config, VectorDatabase(centers), dmax, class_map, convert(Int32, nclasses), KnnResult(1))
     end
 end
 
 function KncProto(
         config::KncProtoConfig,
         input_clusters::ClusteringData,
-        train_X,
+        train_X::AbstractDatabase,
         train_y::CategoricalArray;
         verbose=false
     )
     train_X = convert(AbstractDatabase, train_X)
-    centers = VectorDatabase(eltype(train_X)) # clusters
+    centers = eltype(train_X)[] # clusters
     classes = Int32[] # class mapping between clusters and classes
     dmax = Float32[]
     ncenters = length(input_clusters.centers)
@@ -243,7 +242,7 @@ function KncProto(
     end
 
     verbose && println(stderr, "finished with $(length(centers)) centers; started with $(length(input_clusters.centers))")
-    KncProto(config, centers, dmax, classes, convert(Int32, nclasses), KnnResult(1))
+    KncProto(config, VectorDatabase(centers), dmax, classes, convert(Int32, nclasses), KnnResult(1))
 end
 
 """
