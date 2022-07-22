@@ -3,8 +3,10 @@
 using Test
 
 include("loaddata.jl")
-using KCenters, SearchModels, SimilaritySearch
-using Random, StatsBase, CategoricalArrays, MLDataUtils
+using KCenters, SearchModels, SimilaritySearch, MLUtils
+using StatsBase: mean
+using Random
+
 
 @testset "NearestCenter search_models" begin
     X, ylabels = loadiris()

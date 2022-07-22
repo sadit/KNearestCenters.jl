@@ -2,29 +2,17 @@
 
 module KNearestCenters
 
-using Parameters, LinearAlgebra, CategoricalArrays, StatsBase
+using StatsBase: mean, mode
+using Parameters, LinearAlgebra, CategoricalArrays
 using SearchModels, KCenters, SimilaritySearch
 import SearchModels: combine, mutate
-import StatsBase: predict
+import StatsAPI: predict, fit
+using MLUtils
 
 export Knc, KncConfig, KncConfigSpace, KncProto, KncProtoConfig, KncProtoConfigSpace, KncPerClassConfigSpace, KncGlobalConfigSpace
-export transform, predict
+export transform, predict, fit, categorical
 
-function labelmap(L)
-    D = Dict{Int,Vector{Int}}()
-    for (i, c) in enumerate(L)
-        lst = get(D, c, nothing)
-        if lst === nothing
-            D[c] = [i]
-        else
-            push!(lst, i)
-        end
-    end
-    
-    D
-end
-
-include("scores.jl")  # TODO change supervised learning scores to this package
+include("scores.jl") 
 include("criterions.jl")
 include("kernels.jl")
 
@@ -49,6 +37,7 @@ end
 
 include("knc.jl")
 include("kncproto.jl")
+include("knn.jl")
 
 """
     transform(nc::Knc, kernel::Function, X, normalize!::Function=softmax!)
