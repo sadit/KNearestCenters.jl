@@ -148,7 +148,7 @@ function KncProto(config::KncProtoConfig, X::AbstractDatabase, y::CategoricalArr
         class_map = Int32[]
         nclasses = length(levels(y))
 
-        M = labelmap(y.refs)
+        M = group_indices(y.refs)
         for ilabel in 1:nclasses
             L = get(M, ilabel, nothing)
             L === nothing && continue

@@ -3,8 +3,8 @@
 using Test
 
 include("loaddata.jl")
-using KCenters, SearchModels, SimilaritySearch
-using Random, StatsBase, CategoricalArrays, MLDataUtils
+using KCenters, SearchModels, SimilaritySearch, Random, MLUtils
+using StatsBase: mean
 Random.seed!(1)
 
 @testset "KncProto" begin
