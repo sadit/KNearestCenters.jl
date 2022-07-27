@@ -16,5 +16,6 @@ using KNearestCenters
     @test f1_score([0,1,1,1,0,1], [0,1,1,1,1,1], weight=:macro) ≈ (2 * 0.5 / 1.5 + 2 * 0.8 / 1.8) / 2
 end
 
-include("knc.jl")
-include("kncproto.jl")
+#include("knc.jl")
+#include("kncproto.jl")
+include("knn.jl")

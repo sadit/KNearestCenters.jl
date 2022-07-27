@@ -1,6 +1,6 @@
 # This file is a part of KNearestCenters.jl
 
-using Test, SimilaritySearch
+using Test, SimilaritySearch, CSV
 
 function loadiris()
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
@@ -9,19 +9,9 @@ function loadiris()
         download(url, filename)
     end
 
-    y = String[]
-    X = Vector{Float32}[]
-    for line in eachline(filename)
-        arr = split(line, ',')
-        length(arr) < 5 && continue
-        vec = map(s->parse(Float32, s), arr[1:end-1])
-        push!(X, vec)
-        push!(y, arr[end])
-    end
-
-    VectorDatabase(X), y
+    X = CSV.read(filename, Tuple; header=0)
+    permutedims(hcat(X[[1,2,3,4]]...)), X[end]
 end
-
 
 function loadlinearreg()
     X = [rand(2) .+ i for i in 1:100]

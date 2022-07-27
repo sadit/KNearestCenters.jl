@@ -2,11 +2,22 @@
 
 using SimilaritySearch
 using SparseArrays
+import SimilaritySearch: optimize!
+import LossFunctions: Loss, value
 
 export KnnModel, AbstractKnnPrediction, AbstractKnnWeightKernel
 export KnnSingleLabelPrediction, KnnSoftmaxPrediction, KnnNormalizedPrediction
 export KnnUniformWeightKernel, KnnInvRankWeightKernel, KnnPolyInvRankWeightKernel, KnnInvDistWeightKernel, KnnInvExpDistWeightKernel
-export predict_raw, predict
+export predict_raw, predict, optimize!
+export BalancedErrorRate, BalancedErrorRate, MacroF1Rate
+
+struct BalancedErrorRate <: Loss end
+struct ErrorRate <: Loss end
+struct MacroF1Rate <: Loss end
+
+value(::BalancedErrorRate, y, ypred) = 1.0 - recall_score(y, ypred)
+value(::ErrorRate, y, ypred) = 1.0 - accuracy_score(y, ypred)
+value(::MacroF1Rate, y, ypred) = 1.0 - f1_score(y, ypred)
 
 function onehotenc(labels::CategoricalArray)
     I = Int32[]
@@ -54,7 +65,7 @@ end
 Base.@kwdef struct KnnInvExpDistWeightKernel <: AbstractKnnWeightKernel
     num::Float32 = 1.0
     eps::Float32 = 1e-3
-    pow::Float32 = 1.0
+    pow::Float32 = 3.0
 end
 
 weight(::KnnUniformWeightKernel, d::Float32, rank::Int) = 1f0 
@@ -93,6 +104,16 @@ function fit(::Type{KnnModel}, index::AbstractSearchIndex, labels::CategoricalAr
     KnnModel(k, KnnSingleLabelPrediction(imap), weight, index, meta_)
 end
 
+function fit(::Type{KnnModel}, examples, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel(), dist=L2Distance())
+    meta_, imap = onehotenc(labels)
+    if examples isa AbstractArray
+        db = MatrixDatabase(examples)
+    else
+        db = examples
+    end
+    index = ParallelExhaustiveSearch(; db, dist)
+    KnnModel(k, KnnSingleLabelPrediction(imap), weight, index, meta_)
+end
 """
     fit(::Type{KnnModel}, index::AbstractSearchIndex, meta::AbstractVecOrMat{<:Real}; k=3, weight=KnnUniformWeightKernel(), prediction=KnnSoftmaxPrediction())
     fit(::Type{KnnModel}, examples::AbstractMatrix, meta::AbstractVecOrMat{<:Real}; k=3, weight=KnnUniformWeightKernel(), prediction=KnnSoftmaxPrediction(), dist=L2Distance())
@@ -187,5 +208,56 @@ function predict(model::KnnModel, x)
     normalize_by_kind!(model.prediction, predict_raw(model, x))
 end
 
-#=function optimize!()
+function optimize!(
+        model::KnnModel,
+        loss::Loss,
+        Xtest::AbstractDatabase,
+        ytest;
+        klist=[1, 3, 5, 7, 11, 13, 15, 31],
+        wlist=[
+            KnnInvExpDistWeightKernel(),
+            KnnUniformWeightKernel(), 
+            KnnInvRankWeightKernel(),
+            KnnPolyInvRankWeightKernel(),
+            KnnInvDistWeightKernel(), 
+        ]
+    )
+
+    n = length(ytest)
+    best = Tuple[]
+    for k in klist
+        n < k && break
+        model.k = k
+        for w in wlist
+            model.weight = w
+            ypred = predict.(model, Xtest)
+            e = value(loss, ytest, ypred)
+            push!(best, (e, k, w))
+        end
+    end
+
+    sort!(best, by=first)
+    m = first(best)
+    _, model.k, model.weight = m
+    @show best
+    model
+end
+
+#=
+function optimize!(model::KnnModel, ::ErrorFunction, Xtest, ytest)
+    if queries === nothing
+        kfolds(shuffleobs(eachcol(X)), 3)
+        itrain, itest = splitobs(1:length(ylabels), at=0.7, shuffle=true)
+        Xtrain, ytrain = X[:, itrain], ylabels[itrain]
+        Xtest, ytest = X[:, itest], ylabels[itest]
+        
+    else
+        itrain, itest = splitobs(1:length(ylabels), at=0.7, shuffle=true)
+        Xtrain, ytrain = X[:, itrain], ylabels[itrain]
+        Xtest, ytest = X[:, itest], ylabels[itest]
+    end
 end=#
+
+function Base.broadcastable(knn::KnnModel)
+    (knn,)
+end
