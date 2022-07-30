@@ -3,18 +3,14 @@
 using Test
 
 include("loaddata.jl")
-using SimilaritySearch, KNearestCenters, Random, MLUtils
+using SimilaritySearch, KNearestCenters, Random
 using StatsBase: mean
 using Random
 
-
 @testset "NearestCenter search_models" begin
-    X, ylabels = loadiris()
-    itrain, itest = splitobs(1:length(ylabels), at=0.5, shuffle=true)
-    Xtrain, ytrain = MatrixDatabase(X[:, itrain]), ylabels[itrain]
-    Xtest, ytest = MatrixDatabase(X[:, itest]), ylabels[itest]
+    Xtrain, ytrain, Xtest, ytest = loadiris()
     model = fit(KnnModel, Xtrain, categorical(ytrain))
     m = optimize!(model, BalancedErrorRate(), Xtest, ytest)
     ypred = predict.(model, Xtest)
-    @show m.k, m.weight, recall_score(ytest, ypred)
+    @test 0.8 < recall_score(ytest, ypred)
 end

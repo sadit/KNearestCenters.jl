@@ -3,7 +3,7 @@
 module KNearestCenters
 
 using StatsBase: mean, mode
-using Parameters, LinearAlgebra, CategoricalArrays
+using LinearAlgebra, CategoricalArrays
 using SearchModels, KCenters, SimilaritySearch
 import SearchModels: combine, mutate
 import StatsAPI: predict, fit
@@ -15,29 +15,10 @@ export transform, predict, fit, categorical
 include("scores.jl") 
 include("criterions.jl")
 include("kernels.jl")
-
-"""
-    softmax!(vec::AbstractVector)
-
-Inline computation of the softmax function on the input vector
-"""
-function softmax!(vec::AbstractVector)
-    den = 0.0
-    @inbounds @simd for v in vec
-        den += exp(v)
-    end
-
-    den = 1.0 / den
-    @inbounds @simd for i in eachindex(vec)
-        vec[i] = exp(vec[i]) * den
-    end
-
-    vec
-end
-
+include("knn.jl")
+include("knnopt.jl")
 include("knc.jl")
 include("kncproto.jl")
-include("knn.jl")
 
 """
     transform(nc::Knc, kernel::Function, X, normalize!::Function=softmax!)

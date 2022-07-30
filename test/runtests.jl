@@ -17,5 +17,5 @@ using KNearestCenters
 end
 
 #include("knc.jl")
-#include("kncproto.jl")
-include("knn.jl")
+include("kncproto.jl")
+#include("knn.jl")

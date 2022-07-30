@@ -9,17 +9,17 @@ using Random
 
 
 @testset "NearestCenter search_models" begin
-    X, ylabels = loadiris()
-    ylabels = categorical(ylabels)
+    Xtrain, ytrain, Xtest, ytest = loadiris(at=0.7)
     space = KncConfigSpace()
     Random.seed!(2)
-    ifolds = kfolds(shuffle!(collect(1:length(X))), 3)
+    n = length(ytrain)
+    ifolds = kfolds(n, 3)
     function errorfun(config::KncConfig)
         err = 0.0
         for (itrain, itest) in ifolds
-            model = Knc(config, VectorDatabase(X[itrain]), ylabels[itrain])
-            yhat = predict.(model, X[itest])
-            err += mean(yhat .== ylabels[itest].refs)
+            model = fit(config, Xtrain[itrain], ytrain[itrain])
+            yhat = predict.(model, Xtrain[itest])
+            err += mean(yhat .== ytrain[itest])
         end
     
         1.0 - err / length(ifolds)
@@ -37,5 +37,7 @@ using Random
 
     B = best_list[1]
     println(stderr, "=== BEST MODEL:", B)
-    @test 1 - B.second > 0.9
+    model = fit(B[1], Xtrain, ytrain)
+    ypred = predict.(model, Xtest)
+    @test 0.8 < recall_score(ytest, ypred)
 end

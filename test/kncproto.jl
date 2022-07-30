@@ -8,71 +8,33 @@ using StatsBase: mean
 Random.seed!(1)
 
 @testset "KncProto" begin
-    X, ylabels = loadiris()
-    M = Dict(label => i for (i, label) in enumerate(unique(ylabels) |> sort!))
-    y = categorical([M[y] for y in ylabels])
-    dist = L2Distance()
-    C = kcenters(dist, X, 12)
-    for kernel in [GaussianKernel(dist), LaplacianKernel(dist), CauchyKernel(dist), SigmoidKernel(dist), TanhKernel(dist), ReluKernel(dist), DirectKernel(dist)]
-        nc = KncProto(KncProtoConfig(kernel=kernel, ncenters=-7), X, y, verbose=true)
-        ypred = predict.(nc, X)
-        acc = mean(ypred .== y)
-        @show acc
-        @test acc > 0.8
+    Xtrain, ytrain, Xtest, ytest = loadiris()
+    nc = fit(KncProtoConfig(ncenters=7), Xtrain, ytrain, verbose=true)
+    ypred = predict.(nc, Xtest)
+    acc = mean(ypred .== ytest)
+    @test acc > 0.8
 
-        nc = KncProto(KncProtoConfig(kernel=kernel, ncenters=21, initial_clusters=:fft, minimum_elements_per_region=1), X, y, verbose=true)
-        ypred = predict.(nc, X)
-        acc = mean(ypred .== y)
-        @show acc
-        @test acc > 0.8
-    end
+    nc = fit(KncProtoConfig(ncenters=17), Xtrain, ytrain, verbose=true)
+    ypred = predict.(nc, Xtest)
+    acc12 = mean(ypred .== ytest)
+    @test acc12 > 0.8
+
+    @show acc, acc12
 end
-
-@testset "KncPerClass search_models" begin
-    X, ylabels = loadiris()
-    ylabels = categorical(ylabels)
-    space = KncPerClassConfigSpace{0.3}(
-        initial_clusters=[:rand]
-    )
-    
-    ifolds = kfolds(shuffle!(collect(1:length(X))), 3)
-    function errfun(config::KncProtoConfig)
-        err = 0.0
-        for (itrain, itest) in ifolds
-            model = KncProto(config, X[itrain], ylabels[itrain])
-            err += mean(predict.(model, X[itest]) .== ylabels[itest].refs)
-        end
-    
-        1.0 - err / length(ifolds)
-    end
-
-    best_list = search_models(errfun, space, 32, SearchParams(
-            bsize=8,
-            mutbsize=8,
-            crossbsize=8,
-            tol=-1.0,
-            maxiters=4,
-            verbose=true
-        )
-    )
-    @info "========== BEST MODEL ==========", best_list[1]
-    @test 1 - best_list[1].second > 0.9
-end
-
 
 @testset "KncProto search_models" begin
-    X, ylabels = loadiris()
-    ylabels = categorical(ylabels)
-    space = KncGlobalConfigSpace{0.3}(
+    Xtrain, ytrain, Xtest, ytest = loadiris()
+    space = KncProtoConfigSpace{0.3}(
         initial_clusters=[:rand]
     )
     
-    ifolds = kfolds(shuffle!(collect(1:length(X))), 3)
+    n = length(ytrain)
+    ifolds = kfolds(n, 3)
     function errfun(config::KncProtoConfig)
         err = 0.0
         for (itrain, itest) in ifolds
-            model = KncProto(config, X[itrain], ylabels[itrain])
-            err += mean(predict.(model, X[itest]) .== ylabels[itest].refs)
+            model = fit(config, Xtrain[itrain], ytrain[itrain])
+            err += mean(predict.(model, Xtrain[itest]) .== ytrain[itest])
         end
     
         1.0 - err / length(ifolds)
@@ -89,4 +51,10 @@ end
     )
     @info "========== BEST MODEL ==========", best_list[1]
     @test 1 - best_list[1].second > 0.9
+
+    nc = fit(best_list[1].first, Xtrain, ytrain, verbose=true)
+    ypred = predict.(nc, Xtest)
+    acc = mean(ypred .== ytest)
+    @test acc > 0.8
+    @show acc
 end
