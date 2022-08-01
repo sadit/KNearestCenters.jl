@@ -9,7 +9,7 @@ import SearchModels: combine, mutate
 import StatsAPI: predict, fit
 using MLUtils
 
-export Knc, KncConfig, KncConfigSpace, KncProto, KncProtoConfig, KncProtoConfigSpace, KncPerClassConfigSpace, KncGlobalConfigSpace
+export Knc, KncConfig, KncConfigSpace, KncProto, KncProtoConfig, KncProtoConfigSpace
 export transform, predict, fit, categorical
 
 include("scores.jl") 

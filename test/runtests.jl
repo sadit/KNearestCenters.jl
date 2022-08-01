@@ -1,7 +1,10 @@
 # This file is a part of KCenters.jl
 
-using Test
-using KNearestCenters
+using Test, KNearestCenters
+
+using Aqua
+Aqua.test_all(KNearestCenters, ambiguities=false)
+Aqua.test_ambiguities([KNearestCenters, Core])
 
 @testset "Scores" begin
     @test accuracy_score([1,1,1,1,1], [1,1,1,1,1]) == 1.0
@@ -16,6 +19,6 @@ using KNearestCenters
     @test f1_score([0,1,1,1,0,1], [0,1,1,1,1,1], weight=:macro) ≈ (2 * 0.5 / 1.5 + 2 * 0.8 / 1.8) / 2
 end
 
-#include("knc.jl")
+include("knc.jl")
 include("kncproto.jl")
-#include("knn.jl")
+include("knn.jl")

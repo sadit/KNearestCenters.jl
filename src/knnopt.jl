@@ -31,7 +31,7 @@ function optimize!(
         ]
     )
     optimize!(model, klist, wlist) do
-        predict.(model, Xtest)
+        ypred = predict.(model, Xtest)
         value(loss, ytest, ypred)
     end
 end

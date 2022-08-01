@@ -124,14 +124,11 @@ function fit(::Type{KnnModel}, index::AbstractSearchIndex, labels::CategoricalAr
     KnnModel(k, 1, KnnSingleLabelPrediction(imap), weight, index, meta_)
 end
 
-function fit(::Type{KnnModel}, examples, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel(), dist=L2Distance())
-    meta_, imap = onehotenc(labels)
-    if examples isa AbstractArray
-        db = MatrixDatabase(examples)
-    else
-        db = examples
-    end
+fit(::Type{KnnModel}, examples::AbstractMatrix, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel(), dist=L2Distance()) =
+    fit(KnnModel, MatrixDatabase(examples), labels; k, weight, dist)
 
+function fit(::Type{KnnModel}, db::AbstractDatabase, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel(), dist=L2Distance())
+    meta_, imap = onehotenc(labels)
     index = ParallelExhaustiveSearch(; db, dist)
     KnnModel(k, 1, KnnSingleLabelPrediction(imap), weight, index, meta_)
 end

@@ -1,6 +1,6 @@
 # This file is a part of KNearestCenters.jl
 
-export size_criterion, sqrt_criterion, change_criterion, fun_criterion, log_criterion, epsilon_criterion, salesman_criterion
+export size_criterion, sqrt_criterion, change_criterion, fun_criterion, epsilon_criterion, salesman_criterion
 
 
 """
