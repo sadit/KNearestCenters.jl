@@ -169,10 +169,10 @@ function predict_(model::KnnModel, meta::AbstractSparseArray, res::KnnResult)
 
     rank = 1
     for i in model.kstart:length(res)
-        (id, dist) = res[i]
-        w = weight(model.weight, dist, rank)
+        p = res[i]
+        w = weight(model.weight, p.weight, rank)
 
-        for i in nzrange(meta, id)
+        for i in nzrange(meta, p.id)
             pred[RV[i]] = w * NZ[i]
         end
         rank += 1
@@ -187,9 +187,9 @@ function predict_(model::KnnModel, meta::DenseArray, res::KnnResult)
 
     rank = 1
     for i in model.kstart:length(res)
-        (id, dist) = res[i]
-        w = weight(model.weight, dist, rank)
-        V = view(meta, :, id)
+        p = res[i]
+        w = weight(model.weight, p.weight, rank)
+        V = view(meta, :, p.id)
 
         @inbounds for i in eachindex(pred)
             pred[i] += w * V[i]

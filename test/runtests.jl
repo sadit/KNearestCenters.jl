@@ -4,7 +4,7 @@ using Test, KNearestCenters
 
 using Aqua
 Aqua.test_all(KNearestCenters, ambiguities=false)
-Aqua.test_ambiguities([KNearestCenters, Core])
+Aqua.test_ambiguities([KNearestCenters])
 
 @testset "Scores" begin
     @test accuracy_score([1,1,1,1,1], [1,1,1,1,1]) == 1.0

@@ -67,7 +67,7 @@ function predict(nc::Knc, x)
     res = KnnResult(1)
     for i in eachindex(C)
         d = kfun(kernel, evaluate(dist, x, C[i]), nc.dmax[i])
-        push!(res, i, -d)
+        push_item!(res, i, -d)
     end
 
     nc.imap[argmin(res)]
