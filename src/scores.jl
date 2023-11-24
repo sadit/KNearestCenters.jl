@@ -89,8 +89,8 @@ If labelnames is given, then it is an array of label names.
 """
 function classification_scores(gold::AbstractVector, predicted::AbstractVector; labelnames=nothing)
     class_f1 = Dict()
-	class_precision = Dict()
-	class_recall = Dict()
+	  class_precision = Dict()
+	  class_recall = Dict()
 
     P = precision_recall(gold, predicted)
     
@@ -103,7 +103,8 @@ function classification_scores(gold::AbstractVector, predicted::AbstractVector; 
 
     (
         microf1 = f1_(P.precision, P.recall),
-		precision = P.precision,
+    		precision = P.precision,
+        macroprecision = mean(values(class_precision)),
         recall = P.recall,
         macrorecall = mean(values(class_recall)),
         macrof1 = mean(values(class_f1)),
@@ -115,7 +116,7 @@ function classification_scores(gold::AbstractVector, predicted::AbstractVector; 
 end
 
 """
-    precision_recall(gold::AbstractVector, predicted::AbstractVector) where {T1<:Integer} where {T2<:Integer
+    precision_recall(gold::AbstractVector, predicted::AbstractVector)
 
 Computes the global and per-class precision and recall values between the gold standard
 and the predicted set
