@@ -2,7 +2,6 @@
 
 using SimilaritySearch
 using SparseArrays
-import SimilaritySearch: optimize!
 import LossFunctions: Loss, value
 
 export KnnModel, AbstractKnnPrediction, AbstractKnnWeightKernel
