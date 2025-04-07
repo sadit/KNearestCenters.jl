@@ -99,11 +99,12 @@ mutable struct KnnModel{PredictionType<:AbstractKnnPrediction, IndexType<:Abstra
     prediction::PredictionType
     weight::AbstractKnnWeightKernel
     index::IndexType
+    ctx::AbstractContext
     meta::MetaType
 end
 
 """
-    fit(::Type{KnnModel}, index::AbstractSearchIndex, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel())
+    fit(::Type{KnnModel}, index::AbstractSearchIndex, ctx::AbstractContext, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel())
 
 Creates a new `KnnModel` classifier with the examples indexed by `index` and it associated `labels`
 
@@ -118,7 +119,7 @@ Creates a new `KnnModel` classifier with the examples indexed by `index` and it 
 - `k`: the number of neighbors to be used.
 - `weight`: the neighbor weighting scheme.
 """
-function fit(::Type{KnnModel}, index::AbstractSearchIndex, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel())
+function fit(::Type{KnnModel}, index::AbstractSearchIndex, ctx::AbstractContext, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel())
     meta_, imap = onehotenc(labels)
     KnnModel(k, 1, KnnSingleLabelPrediction(imap), weight, index, meta_)
 end
@@ -129,7 +130,7 @@ fit(::Type{KnnModel}, examples::AbstractMatrix, labels::CategoricalArray; k=3, w
 function fit(::Type{KnnModel}, db::AbstractDatabase, labels::CategoricalArray; k=3, weight=KnnUniformWeightKernel(), dist=L2Distance())
     meta_, imap = onehotenc(labels)
     index = ParallelExhaustiveSearch(; db, dist)
-    KnnModel(k, 1, KnnSingleLabelPrediction(imap), weight, index, meta_)
+    KnnModel(k, 1, KnnSingleLabelPrediction(imap), weight, index, GenericContext(), meta_)
 end
 
 """
@@ -151,14 +152,14 @@ Creates a new `KnnModel` classifier with the examples indexed by `index` and it 
 - `weight`: the neighbor weighting scheme.
 - `dist`: distance function to be used
 """
-function fit(::Type{KnnModel}, index::AbstractSearchIndex, meta::AbstractVecOrMat{<:Real}; k=3, weight=KnnUniformWeightKernel(), prediction=KnnSoftmaxPrediction())
-    KnnModel(k, 1, prediction, weight, index, meta)
+function fit(::Type{KnnModel}, index::AbstractSearchIndex, ctx::AbstractContext, meta::AbstractVecOrMat{<:Real}; k=3, weight=KnnUniformWeightKernel(), prediction=KnnSoftmaxPrediction())
+    KnnModel(k, 1, prediction, weight, index, ctx, meta)
 end
 
 function fit(::Type{KnnModel}, examples::AbstractMatrix, meta::AbstractVecOrMat{<:Real}; k=3, weight=KnnUniformWeightKernel(), prediction=KnnSoftmaxPrediction(), dist=L2Distance())
     db = MatrixDatabase(examples)
     index = ParallelExhaustiveSearch(; db, dist)
-    KnnModel(k, 1, prediction, weight, index, meta)
+    KnnModel(k, 1, prediction, weight, index, GenericContext(), meta)
 end
 
 function predict_(model::KnnModel, meta::AbstractSparseArray, res::KnnResult)
@@ -205,8 +206,8 @@ end
 Computes the correspoding vectors without any normalization (or determining the label).
 """
 function predict_raw(model::KnnModel, x)
-    res = getknnresult(model.k + model.kstart - 1)
-    search(model.index, x, res)
+    res = getknnresult(model.k + model.kstart - 1, model.ctx)
+    search(model.index, model.ctx, x, res)
     predict_(model, model.meta, res)
 end
 

@@ -44,7 +44,6 @@ end
             bsize=8,
             mutbsize=8,
             crossbsize=8,
-            tol=-1.0,
             maxiters=4,
             verbose=true
         )

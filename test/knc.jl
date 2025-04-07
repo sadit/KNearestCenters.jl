@@ -29,7 +29,6 @@ using Random
             bsize=8,
             mutbsize=4,
             crossbsize=8,
-            tol=-1.0,
             maxiters=16,
             verbose=true
         )
